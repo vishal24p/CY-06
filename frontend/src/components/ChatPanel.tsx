@@ -9,6 +9,8 @@ const greeting: ChatMessage = {
   role: "assistant",
   content: "Ask about locally imported identities, privilege paths, findings, or policy impact.",
 };
+const MAX_CHAT_MESSAGES = 20;
+const MAX_CHAT_MESSAGE_CHARS = 4_000;
 
 export function ChatPanel() {
   const [messages, setMessages] = useState<ChatMessage[]>([greeting]);
@@ -22,8 +24,12 @@ export function ChatPanel() {
     event.preventDefault();
     const content = draft.trim();
     if (!content || sending) return;
+    if (content.length > MAX_CHAT_MESSAGE_CHARS) {
+      setError("Question must be 4,000 characters or fewer.");
+      return;
+    }
 
-    const conversation = [...messages, { role: "user" as const, content }];
+    const conversation = [...messages, { role: "user" as const, content }].slice(-MAX_CHAT_MESSAGES);
     setMessages(conversation);
     setDraft("");
     setToolCalls([]);
@@ -33,7 +39,7 @@ export function ChatPanel() {
 
     try {
       const response = await sendChat(conversation);
-      setMessages([...conversation, { role: "assistant", content: response.message }]);
+      setMessages([...conversation, { role: "assistant" as const, content: response.message }].slice(-MAX_CHAT_MESSAGES));
       setToolCalls(response.tool_calls);
       setStatus(response.message ? `Assistant reply: ${response.message}` : "Assistant reply received.");
     } catch (cause) {

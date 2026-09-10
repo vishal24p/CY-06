@@ -17,6 +17,10 @@ READ_ONLY_TOOL_NAMES = frozenset({
     "verify_remediation",
 })
 MAX_TOOL_ROUNDS = 3
+SYSTEM_INSTRUCTION = (
+    "CY-06 uses only the fixed read-only tool registry. Never import, simulate, "
+    "apply, approve, or otherwise mutate data."
+)
 
 
 class ChatError(ValueError):
@@ -67,11 +71,13 @@ def run_chat(
         raise ChatError("messages must contain at most 20 items")
     if not all(isinstance(message, dict) and isinstance(message.get("role"), str) and isinstance(message.get("content"), str) for message in messages):
         raise ChatError("messages must contain role and content strings")
+    if any(message["role"] not in {"user", "assistant"} for message in messages):
+        raise ChatError("messages must use user or assistant roles")
     if any(not 1 <= len(message["content"]) <= 4000 or not message["content"].strip() for message in messages):
         raise ChatError("message content must be between 1 and 4000 non-blank characters")
 
     endpoint = f"{base_url.rstrip('/')}/chat/completions"
-    request_messages: list[dict[str, Any]] = list(messages)
+    request_messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM_INSTRUCTION}, *messages]
     completed: list[dict[str, str]] = []
     tools: IdentitySecurityTools | None = None
     for _ in range(MAX_TOOL_ROUNDS):
