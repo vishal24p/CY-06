@@ -1,5 +1,7 @@
 """Local HTTP API for CY-06 analysis."""
 
+import json
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
@@ -35,6 +37,13 @@ class ChatRequest(BaseModel):
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/v1/demo")
+def demo() -> dict[str, Any]:
+    fixture = Path(__file__).resolve().parents[2] / "data" / "sample-iam-inventory.json"
+    with fixture.open(encoding="utf-8") as stream:
+        return json.load(stream)
 
 
 @app.post("/api/v1/analyze")

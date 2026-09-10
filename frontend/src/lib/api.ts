@@ -1,4 +1,11 @@
-import type { AnalysisReport, ChatMessage, ChatResponse } from "@/lib/types";
+import type { AnalysisReport, ChatMessage, ChatResponse, Finding, Inventory } from "@/lib/types";
+
+export async function loadDemoInventory(): Promise<Inventory> {
+  const response = await fetch("/api/analyze", { cache: "no-store" });
+  const payload = await response.json();
+  if (!response.ok || !isRecord(payload)) throw new Error(payload.detail ?? "Demo data unavailable.");
+  return payload as Inventory;
+}
 
 export async function analyzeInventory(inventory: unknown): Promise<AnalysisReport> {
   const response = await fetch("/api/analyze", {
@@ -26,6 +33,23 @@ export async function sendChat(messages: ChatMessage[]): Promise<ChatResponse> {
     throw new Error(payload.detail ?? "Chat failed.");
   }
   return normalizeChatResponse(payload);
+}
+
+export async function simulateRemediation(inventory: Inventory, finding: Finding): Promise<AnalysisReport> {
+  const copy = JSON.parse(JSON.stringify(inventory)) as Inventory;
+  removeAction(copy, finding.permission);
+  return analyzeInventory(copy);
+}
+
+function removeAction(value: unknown, action: string): void {
+  if (Array.isArray(value)) {
+    value.forEach((item) => removeAction(item, action));
+    return;
+  }
+  if (!isRecord(value)) return;
+  if (typeof value.Action === "string" && value.Action === action) value.Action = [];
+  if (Array.isArray(value.Action)) value.Action = value.Action.filter((item) => item !== action);
+  Object.values(value).forEach((item) => removeAction(item, action));
 }
 
 function normalizeReport(payload: unknown): AnalysisReport {

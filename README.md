@@ -29,6 +29,8 @@ npm run dev
 
 Open `http://localhost:3000`, upload `data\sample-iam-inventory.json`, and review the privilege graph, source tables, and findings. The UI sends the file to the local API; it does not contact AWS.
 
+For a judge-ready demo, start both processes, open the UI, and click `Load guided demo`. Then use the suggested assistant question, open the first finding, and click `Preview safe fix`. The preview clones the synthetic snapshot, removes only the selected action, and re-runs the same analyzer; it never changes AWS or the uploaded file. Live chat, PostgreSQL, and AWS SSO are optional extensions, not required for this demo path.
+
 The sample contains 8 users, 4 groups, 6 roles, and 8 policies. It intentionally mixes safe access with group inheritance, unrestricted access, user lifecycle permissions, and privileged role-assumption paths so the graph has meaningful relationships to inspect.
 
 ### Coverage input contract

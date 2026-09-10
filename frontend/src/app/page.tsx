@@ -3,10 +3,12 @@
 import { ChangeEvent, useState } from "react";
 
 import { ChatPanel } from "@/components/ChatPanel";
+import { AnalysisSummary } from "@/components/AnalysisSummary";
 import { FindingsList } from "@/components/FindingsList";
 import { IamGraph } from "@/components/IamGraph";
 import { InventoryTables } from "@/components/InventoryTables";
-import { analyzeInventory } from "@/lib/api";
+import { RemediationPreview } from "@/components/RemediationPreview";
+import { analyzeInventory, loadDemoInventory } from "@/lib/api";
 import type { AnalysisReport, Inventory } from "@/lib/types";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -15,6 +17,7 @@ export default function Home() {
   const [report, setReport] = useState<AnalysisReport | null>(null);
   const [inventory, setInventory] = useState<Inventory | null>(null);
   const [filename, setFilename] = useState("");
+  const [demoMode, setDemoMode] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -22,6 +25,7 @@ export default function Home() {
     const file = event.target.files?.[0];
     if (!file) return;
     setFilename(file.name);
+    setDemoMode(false);
     setReport(null);
     setInventory(null);
     setError("");
@@ -34,10 +38,30 @@ export default function Home() {
     setLoading(true);
     try {
       const parsed = JSON.parse(await file.text()) as Inventory;
-      setReport(await analyzeInventory(parsed));
-      setInventory(parsed);
+      await showAnalysis(parsed);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Invalid JSON file.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function showAnalysis(parsed: Inventory) {
+    setReport(await analyzeInventory(parsed));
+    setInventory(parsed);
+  }
+
+  async function handleDemo() {
+    setFilename("sample-iam-inventory.json");
+    setDemoMode(true);
+    setReport(null);
+    setInventory(null);
+    setError("");
+    setLoading(true);
+    try {
+      await showAnalysis(await loadDemoInventory());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Demo data unavailable.");
     } finally {
       setLoading(false);
     }
@@ -76,6 +100,7 @@ export default function Home() {
               <span className="mt-2 text-xs text-[#71817e]">or use the sample in <span className="font-mono text-[#536562]">data/</span></span>
               <input id="iam-file" className="sr-only" type="file" accept="application/json,.json" onChange={handleFile} />
             </label>
+            <button type="button" onClick={handleDemo} disabled={loading} className="mt-3 w-full rounded-md border border-[#147d78] px-4 py-2 text-sm font-semibold text-[#147d78] hover:bg-[#eef7f4] disabled:cursor-not-allowed disabled:opacity-50">{loading ? "Loading demo…" : "Load guided demo"}</button>
             {filename && <p className="mt-4 truncate rounded-md bg-[#eef2ef] px-3 py-2 font-mono text-xs text-[#536562]" title={filename}>{filename}</p>}
             <div className="mt-5 min-h-5" aria-live="polite">
               {loading && <p className="text-sm text-[#147d78]">Analyzing permission paths…</p>}
@@ -103,9 +128,11 @@ export default function Home() {
               <IamGraph graph={report?.graph ?? { nodes: [], edges: [] }} findings={report?.findings ?? []} />
             </div>
             <div className="h-[70vh] min-h-[520px] max-h-[800px] min-w-0">
-              <ChatPanel />
+              <ChatPanel findings={report?.findings ?? []} demoMode={demoMode} />
             </div>
           </div>
+          {report && <AnalysisSummary report={report} />}
+          {report?.findings[0] && <RemediationPreview inventory={inventory} finding={report.findings[0]} />}
           <section className="mt-10" aria-labelledby="findings-heading">
             <div className="mb-5 border-b border-[#cad6d2] pb-4">
               <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Evidence paths</p>

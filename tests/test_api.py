@@ -10,6 +10,14 @@ def test_health_endpoint():
     assert response.json() == {"status": "ok"}
 
 
+def test_demo_endpoint_returns_checked_in_fixture():
+    response = TestClient(app).get("/api/v1/demo")
+
+    assert response.status_code == 200
+    assert len(response.json()["UserDetailList"]) == 8
+    assert len(response.json()["Policies"]) == 8
+
+
 def test_analyze_endpoint_returns_report():
     response = TestClient(app).post(
         "/api/v1/analyze",
