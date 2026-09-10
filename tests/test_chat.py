@@ -11,11 +11,11 @@ class FakeTools:
         return [{"title": "No critical findings."}]
 
 
-def tool_call_then_reply(name):
+def tool_call_then_reply(name, arguments="{}"):
     return [
         {
             "choices": [{"message": {"content": None, "tool_calls": [{
-                "id": "call-1", "type": "function", "function": {"name": name, "arguments": "{}"},
+                "id": "call-1", "type": "function", "function": {"name": name, "arguments": arguments},
             }]}}],
         },
         {"choices": [{"message": {"content": "No critical findings."}}]},
@@ -39,6 +39,37 @@ def test_chat_rejects_missing_provider_configuration(monkeypatch):
 
     with pytest.raises(ChatError, match="CY06_CHAT_BASE_URL"):
         run_chat([{"role": "user", "content": "List findings"}])
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    ["https://provider.example/api", "http://provider.example/v1", "ftp://provider.example/v1"],
+)
+def test_chat_rejects_unsafe_provider_urls_before_request(monkeypatch, base_url):
+    monkeypatch.setenv("CY06_CHAT_BASE_URL", base_url)
+    monkeypatch.setenv("CY06_CHAT_MODEL", "model")
+    monkeypatch.setenv("CY06_CHAT_API_KEY", "secret")
+    requests = []
+
+    def open_url(*args, **kwargs):
+        requests.append((args, kwargs))
+
+    with pytest.raises(ChatError, match="CY06_CHAT_BASE_URL"):
+        run_chat([{"role": "user", "content": "List findings"}], open_url=open_url)
+
+    assert requests == []
+
+
+def test_chat_accepts_https_provider_url(monkeypatch):
+    monkeypatch.setenv("CY06_CHAT_BASE_URL", "https://provider.example/v1")
+    monkeypatch.setenv("CY06_CHAT_MODEL", "model")
+
+    result = run_chat(
+        [{"role": "user", "content": "List findings"}],
+        open_url=fake_urlopen([{"choices": [{"message": {"content": "Read-only reply."}}]}]),
+    )
+
+    assert result["message"] == "Read-only reply."
 
 
 def test_chat_registry_never_exposes_mutation_tools():
@@ -90,6 +121,40 @@ def test_chat_rejects_provider_requested_mutation(monkeypatch):
         run_chat(
             [{"role": "user", "content": "Apply it"}],
             open_url=fake_urlopen(tool_call_then_reply("apply_remediation")),
+            tools_factory=FakeTools,
+        )
+
+
+@pytest.mark.parametrize("content", ["", "   ", "x" * 4001, None])
+def test_chat_rejects_invalid_final_provider_reply(monkeypatch, content):
+    monkeypatch.setenv("CY06_CHAT_BASE_URL", "http://localhost:11434/v1")
+    monkeypatch.setenv("CY06_CHAT_MODEL", "llama3")
+
+    with pytest.raises(ChatError, match="Provider response was invalid"):
+        run_chat(
+            [{"role": "user", "content": "Show findings"}],
+            open_url=fake_urlopen([{"choices": [{"message": {"content": content}}]}]),
+        )
+
+
+@pytest.mark.parametrize(
+    ("name", "arguments"),
+    [
+        ("list_security_findings", '{"unknown": true}'),
+        ("get_identity_entity", "{}"),
+        ("list_audit_logs", '{"limit": "10"}'),
+        ("list_identity_entities", '{"limit": 0}'),
+        ("list_privilege_paths", '{"offset": -1}'),
+    ],
+)
+def test_chat_rejects_invalid_tool_arguments_before_dispatch(monkeypatch, name, arguments):
+    monkeypatch.setenv("CY06_CHAT_BASE_URL", "http://localhost:11434/v1")
+    monkeypatch.setenv("CY06_CHAT_MODEL", "llama3")
+
+    with pytest.raises(ChatError, match="Tool arguments"):
+        run_chat(
+            [{"role": "user", "content": "Show findings"}],
+            open_url=fake_urlopen(tool_call_then_reply(name, arguments)),
             tools_factory=FakeTools,
         )
 

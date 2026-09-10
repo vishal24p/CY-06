@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import os
+from ipaddress import ip_address
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 from .identity_security import IdentitySecurityError, IdentitySecurityTools
@@ -49,6 +51,7 @@ _TOOLS = [
 def _dispatch(name: str, arguments: dict[str, Any], tools: IdentitySecurityTools) -> Any:
     if name not in READ_ONLY_TOOL_NAMES:
         raise ChatError("Requested tool is not available to chat")
+    _validate_tool_arguments(name, arguments)
     try:
         method = getattr(tools, name)
         return method(**arguments)
@@ -65,7 +68,7 @@ def run_chat(
     tools_factory: Callable[[], IdentitySecurityTools] = IdentitySecurityTools,
 ) -> dict[str, Any]:
     """Send chat messages to a configured provider and execute read-only calls."""
-    base_url = _required_environment("CY06_CHAT_BASE_URL")
+    base_url = _provider_base_url(_required_environment("CY06_CHAT_BASE_URL"))
     model = _required_environment("CY06_CHAT_MODEL")
     if not isinstance(messages, list) or len(messages) > 20:
         raise ChatError("messages must contain at most 20 items")
@@ -85,7 +88,7 @@ def run_chat(
         tool_calls = _tool_calls(message)
         if not tool_calls:
             content = message.get("content")
-            if not isinstance(content, str):
+            if not isinstance(content, str) or not 1 <= len(content) <= 4000 or not content.strip():
                 raise ChatError("Provider response was invalid")
             return {"message": content, "tool_calls": completed}
         request_messages.append({**message, "role": "assistant"})
@@ -102,6 +105,46 @@ def _required_environment(name: str) -> str:
     if not value:
         raise ChatError(f"{name} is required")
     return value
+
+
+def _provider_base_url(value: str) -> str:
+    try:
+        parsed = urlsplit(value)
+        host = parsed.hostname
+    except ValueError as error:
+        raise ChatError("CY06_CHAT_BASE_URL must use HTTPS or local HTTP and end in /v1") from error
+    if not host or not parsed.path.endswith("/v1") or parsed.query or parsed.fragment:
+        raise ChatError("CY06_CHAT_BASE_URL must use HTTPS or local HTTP and end in /v1")
+    if parsed.scheme == "https" or parsed.scheme == "http" and _is_local_host(host):
+        return value
+    raise ChatError("CY06_CHAT_BASE_URL must use HTTPS or local HTTP and end in /v1")
+
+
+def _is_local_host(host: str) -> bool:
+    if host == "localhost":
+        return True
+    try:
+        return ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _validate_tool_arguments(name: str, arguments: dict[str, Any]) -> None:
+    properties = _FUNCTIONS[name]
+    if set(arguments) - set(properties) or any(key not in arguments for key in _REQUIRED.get(name, [])):
+        raise ChatError("Tool arguments are invalid")
+    for key, value in arguments.items():
+        schema = properties[key]
+        if schema["type"] == "string":
+            valid = isinstance(value, str)
+        else:
+            valid = isinstance(value, int) and not isinstance(value, bool)
+            if key == "limit":
+                valid = valid and 1 <= value <= 200
+            elif key == "offset":
+                valid = valid and value >= 0
+        if not valid or value not in schema.get("enum", [value]):
+            raise ChatError("Tool arguments are invalid")
 
 
 def _provider_message(endpoint: str, model: str, messages: list[dict[str, Any]], open_url: Callable[..., Any]) -> dict[str, Any]:
