@@ -125,13 +125,13 @@ function count(value: unknown) {
   return Array.isArray(value) ? value.length : 0;
 }
 
-function CoverageSummary({ coverage }: { coverage?: Record<string, number> }) {
+function CoverageSummary({ coverage }: { coverage: Record<string, number> }) {
   const items = [
-    ["HR / IdP", coverage?.identity_metadata ?? 0],
-    ["Resource policies", coverage?.resource_policies ?? 0],
-    ["Boundaries", coverage?.boundaries ?? 0],
-    ["SCPs", coverage?.scp_policies ?? 0],
-    ["Sessions", coverage?.sessions ?? 0],
+    ["HR / IdP", coverage.identity_metadata],
+    ["Resource policies", coverage.resource_policies],
+    ["Boundaries", coverage.boundaries],
+    ["SCPs", coverage.scp_policies],
+    ["Sessions", coverage.sessions],
   ] as const;
   return <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">{items.map(([label, value]) => <div key={label} className="rounded-lg border border-[#dce5e1] bg-[#f7faf7] px-3 py-2"><p className="text-[10px] uppercase tracking-wider text-[#71817e]">{label}</p><p className="mt-1 font-mono text-sm font-semibold text-[#314842]">{value}</p></div>)}</div>;
 }

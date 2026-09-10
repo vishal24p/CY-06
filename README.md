@@ -66,3 +66,14 @@ arn:aws:iam::820919093456:role/PrivilegePathFinderReadOnlyRole
 Successful output is JSON with `status: "ok"`, account ID `820919093456`, source ARN, assumed-role ARN, and expiration. It contains no access keys, secret keys, session tokens, or boto3 session data.
 
 Failures are concise messages on stderr with a non-zero exit code. AWS collection remains read-only and is separate from the local JSON workflow.
+
+## Local identity-security database
+
+The PostgreSQL-backed identity-security tools use only a local database. Set `CY06_DATABASE_URL` in your shell, then create an `IdentitySecurityTools` instance and call `initialize()` before importing local IAM-shaped JSON. Do not commit database URLs, passwords, tokens, or imported production data.
+
+```powershell
+$env:CY06_DATABASE_URL = "postgresql://<local-user>@localhost:<port>/<database>"
+python -m pip install -e .
+```
+
+Use `simulate_remediation()` first. `apply_remediation()` accepts only the exact approval text `Approve this change`, then rebuilds evidence, verifies the stored result, and writes an audit record in one database transaction.
