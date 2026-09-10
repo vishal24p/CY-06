@@ -1,67 +1,55 @@
-import type { Finding, Inventory } from "@/lib/types";
+import type { Finding, GraphEdge, GraphNode } from "@/lib/types";
 
-type Kind = "user" | "group" | "role" | "policy";
-type Node = { id: string; label: string; kind: Kind; x: number; y: number; risky: boolean };
-type Edge = { from: string; to: string; risky: boolean };
+type PositionedNode = GraphNode & { x: number; y: number; risky: boolean };
 
-const columns: Array<{ kind: Kind; label: string; x: number; color: string }> = [
-  { kind: "user", label: "Users", x: 110, color: "#147d78" },
-  { kind: "group", label: "Groups", x: 330, color: "#5b65a8" },
-  { kind: "role", label: "Roles", x: 550, color: "#a36d13" },
-  { kind: "policy", label: "Policies", x: 770, color: "#2c7652" },
+const columns = [
+  { label: "Governance", types: ["organization", "root", "ou", "account"], x: 130, color: "#5b65a8" },
+  { label: "Identities", types: ["user", "principal", "group", "identity_metadata"], x: 385, color: "#147d78" },
+  { label: "Access controls", types: ["role", "policy", "boundary", "scp", "session", "session_policy"], x: 640, color: "#a36d13" },
+  { label: "Resources", types: ["resource_policy", "resource"], x: 895, color: "#2c7652" },
 ];
 
-export function IamGraph({ inventory, findings }: { inventory: Inventory; findings: Finding[] }) {
+export function IamGraph({ graph, findings }: { graph: { nodes: GraphNode[]; edges: GraphEdge[] }; findings: Finding[] }) {
   const riskPath = new Set(findings.flatMap((finding) => finding.path));
-  const nodes: Node[] = [];
-  const byKey = new Map<string, Node>();
-
-  for (const column of columns) {
-    const records = recordsFor(inventory, column.kind);
-    records.forEach((record, index) => {
-      const id = recordId(record, column.kind, index);
-      const node = {
-        id,
-        label: recordLabel(record, column.kind, index),
-        kind: column.kind,
-        x: column.x,
-        y: 72 + index * 76,
-        risky: riskPath.has(id) || riskPath.has(recordLabel(record, column.kind, index)),
-      } satisfies Node;
-      nodes.push(node);
-      byKey.set(id, node);
-      byKey.set(recordLabel(record, column.kind, index), node);
-      if (column.kind === "policy") byKey.set(`policy:${recordLabel(record, column.kind, index)}`, node);
-    });
-  }
-
-  const edges = buildEdges(inventory, byKey, riskPath);
-  const height = Math.max(300, ...nodes.map((node) => node.y + 48));
+  const positioned = layoutNodes(graph.nodes, riskPath);
+  const byId = new Map(positioned.map((node) => [node.id, node]));
+  const edges = graph.edges.map((edge) => ({
+    ...edge,
+    from: byId.get(edge.from),
+    to: byId.get(edge.to),
+    risky: Boolean(byId.get(edge.from)?.risky || byId.get(edge.to)?.risky),
+  })).filter((edge) => edge.from && edge.to);
+  const height = Math.max(320, ...positioned.map((node) => node.y + 54));
 
   return (
     <section className="rounded-xl border border-[#d4dfdc] bg-white p-5" aria-labelledby="graph-heading">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Relationship map</p>
-          <h2 id="graph-heading" className="mt-1 text-xl font-semibold text-[#17252f]">IAM privilege graph</h2>
+          <h2 id="graph-heading" className="mt-1 text-xl font-semibold text-[#17252f]">Authorization coverage graph</h2>
         </div>
-        <p className="text-xs text-[#71817e]">Red edges/nodes are part of a detected risk path.</p>
+        <p className="text-xs text-[#71817e]">API graph · red marks detected risk paths</p>
       </div>
       <div className="mt-5 overflow-x-auto rounded-lg border border-[#dce5e1] bg-[#f7faf7] p-3">
-        <svg className="min-w-[860px]" width="900" height={height} viewBox={`0 0 900 ${height}`} role="img" aria-labelledby="graph-heading graph-description">
-          <desc id="graph-description">Users, groups, roles, and policies connected by IAM relationships.</desc>
-          {columns.map((column) => <text key={column.kind} x={column.x} y="25" textAnchor="middle" fill={column.color} fontSize="12" fontWeight="600">{column.label}</text>)}
-          {edges.map((edge, index) => {
-            const from = byKey.get(edge.from);
-            const to = byKey.get(edge.to);
-            if (!from || !to) return null;
-            return <line key={`${edge.from}-${edge.to}-${index}`} x1={from.x + 78} y1={from.y + 22} x2={to.x - 78} y2={to.y + 22} stroke={edge.risky ? "#c9564c" : "#aebfba"} strokeWidth={edge.risky ? 3 : 1.5} markerEnd="url(#arrow)" />;
-          })}
+        <svg className="min-w-[1040px]" width="1040" height={height} viewBox={`0 0 1040 ${height}`} role="img" aria-labelledby="graph-heading graph-description">
+          <desc id="graph-description">Governance, identities, access controls, resources, and their evidence-backed relationships.</desc>
+          {columns.map((column) => <text key={column.label} x={column.x} y="25" textAnchor="middle" fill={column.color} fontSize="12" fontWeight="600">{column.label}</text>)}
           <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#849a94" /></marker></defs>
-          {nodes.map((node) => <g key={node.id}>
-            <rect x={node.x - 78} y={node.y} width="156" height="44" rx="6" fill={node.risky ? "#fff3f1" : "#ffffff"} stroke={node.risky ? "#c9564c" : kindColor(node.kind)} strokeWidth={node.risky ? 2 : 1} />
-            <text x={node.x} y={node.y + 18} textAnchor="middle" fill="#17252f" fontSize="11" fontWeight="600">{truncate(node.label, 22)}</text>
-            <text x={node.x} y={node.y + 33} textAnchor="middle" fill={node.risky ? "#a33d34" : "#71817e"} fontSize="9">{node.risky ? "risk path" : node.kind}</text>
+          {edges.map((edge, index) => {
+            if (!edge.from || !edge.to) return null;
+            const x1 = edge.from.x + 88;
+            const y1 = edge.from.y + 24;
+            const x2 = edge.to.x - 88;
+            const y2 = edge.to.y + 24;
+            return <g key={`${edge.from.id}-${edge.to.id}-${edge.type}-${index}`}>
+              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={edge.risky ? "#c9564c" : "#aebfba"} strokeWidth={edge.risky ? 3 : 1.5} markerEnd="url(#arrow)" />
+              {edge.label && <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 4} textAnchor="middle" fill="#71817e" fontSize="8">{truncate(edge.label, 18)}</text>}
+            </g>;
+          })}
+          {positioned.map((node) => <g key={node.id}>
+            <rect x={node.x - 88} y={node.y} width="176" height="48" rx="6" fill={node.risky ? "#fff3f1" : "#ffffff"} stroke={node.risky ? "#c9564c" : kindColor(node.type)} strokeWidth={node.risky ? 2 : 1} />
+            <text x={node.x} y={node.y + 20} textAnchor="middle" fill="#17252f" fontSize="11" fontWeight="600">{truncate(node.label, 24)}</text>
+            <text x={node.x} y={node.y + 36} textAnchor="middle" fill={node.risky ? "#a33d34" : "#71817e"} fontSize="9">{node.risky ? "risk path" : node.type.replaceAll("_", " ")}</text>
           </g>)}
         </svg>
       </div>
@@ -69,60 +57,15 @@ export function IamGraph({ inventory, findings }: { inventory: Inventory; findin
   );
 }
 
-function recordsFor(inventory: Inventory, kind: Kind): Record<string, unknown>[] {
-  const key = kind === "user" ? "UserDetailList" : kind === "group" ? "GroupDetailList" : kind === "role" ? "RoleDetailList" : "Policies";
-  return Array.isArray(inventory[key]) ? inventory[key].filter(isRecord) : [];
+function layoutNodes(nodes: GraphNode[], riskPath: Set<string>): PositionedNode[] {
+  return columns.flatMap((column) => column.types.flatMap((type) => nodes.filter((node) => node.type === type)))
+    .map((node) => {
+      const column = columns.find((candidate) => candidate.types.includes(node.type)) ?? columns[1];
+      const index = nodes.filter((candidate) => column.types.includes(candidate.type)).indexOf(node);
+      const risky = riskPath.has(node.id) || riskPath.has(node.label) || [...riskPath].some((value) => value.endsWith(node.id));
+      return { ...node, x: column.x, y: 52 + index * 70, risky };
+    });
 }
 
-function recordId(record: Record<string, unknown>, kind: Kind, index: number) {
-  return stringValue(record.Arn) ?? `${kind}-${index}`;
-}
-
-function recordLabel(record: Record<string, unknown>, kind: Kind, index: number) {
-  const key = kind === "user" ? "UserName" : kind === "group" ? "GroupName" : kind === "role" ? "RoleName" : "PolicyName";
-  return stringValue(record[key]) ?? recordId(record, kind, index);
-}
-
-function buildEdges(inventory: Inventory, byKey: Map<string, Node>, riskPath: Set<string>): Edge[] {
-  const edges: Edge[] = [];
-  const add = (from: string | undefined, to: string | undefined) => {
-    if (!from || !to || !byKey.has(from) || !byKey.has(to)) return;
-    if (edges.some((edge) => edge.from === from && edge.to === to)) return;
-    edges.push({ from, to, risky: riskPath.has(from) || riskPath.has(to) });
-  };
-
-  for (const user of recordsFor(inventory, "user")) {
-    const userId = stringValue(user.Arn) ?? stringValue(user.UserName);
-    for (const group of arrayValue(user.GroupList)) add(userId, stringValue(group) ?? (isRecord(group) ? stringValue(group.GroupName) : undefined));
-    for (const policy of [...arrayValue(user.AttachedManagedPolicies), ...arrayValue(user.UserPolicyList)]) add(userId, `policy:${policyName(policy)}`);
-    for (const policy of arrayValue(user.UserPolicyList)) {
-      for (const statement of policyStatements(policy)) {
-        const resource = statement.Resource;
-        if (statement.Action === "sts:AssumeRole") add(userId, stringValue(resource));
-      }
-    }
-  }
-  for (const group of recordsFor(inventory, "group")) {
-    const groupId = stringValue(group.Arn) ?? stringValue(group.GroupName);
-    for (const user of arrayValue(group.Users)) add(groupId, stringValue(user) ?? (isRecord(user) ? stringValue(user.Arn) ?? stringValue(user.UserName) : undefined));
-    for (const policy of [...arrayValue(group.AttachedManagedPolicies), ...arrayValue(group.GroupPolicyList)]) add(groupId, `policy:${policyName(policy)}`);
-  }
-  for (const role of recordsFor(inventory, "role")) {
-    const roleId = stringValue(role.Arn) ?? stringValue(role.RoleName);
-    for (const policy of [...arrayValue(role.AttachedManagedPolicies), ...arrayValue(role.RolePolicyList)]) add(roleId, `policy:${policyName(policy)}`);
-    for (const statement of trustStatements(role.AssumeRolePolicyDocument)) {
-      const principal = statement.Principal;
-      add(stringValue(principal) ?? (isRecord(principal) ? stringValue(principal.AWS) : undefined), roleId);
-    }
-  }
-  return edges;
-}
-
-function policyName(value: unknown) { return isRecord(value) ? stringValue(value.PolicyName) ?? stringValue(value.Name) ?? "policy" : stringValue(value) ?? "policy"; }
-function policyStatements(value: unknown) { return isRecord(value) && isRecord(value.PolicyDocument) ? arrayValue(value.PolicyDocument.Statement).filter(isRecord) : []; }
-function trustStatements(value: unknown) { return isRecord(value) ? arrayValue(value.Statement).filter(isRecord) : []; }
-function arrayValue(value: unknown): unknown[] { return Array.isArray(value) ? value : value === undefined ? [] : [value]; }
-function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
-function stringValue(value: unknown): string | undefined { return typeof value === "string" ? value : undefined; }
+function kindColor(type: string) { return columns.find((column) => column.types.includes(type))?.color ?? "#64748b"; }
 function truncate(value: string, length: number) { return value.length > length ? `${value.slice(0, length - 1)}…` : value; }
-function kindColor(kind: Kind) { return columns.find((column) => column.kind === kind)?.color ?? "#64748b"; }

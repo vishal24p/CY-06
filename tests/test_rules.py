@@ -214,3 +214,81 @@ def test_scoped_action_wildcard_is_not_unrestricted_access():
     }
 
     assert analyze_inventory(inventory)["findings"] == []
+
+
+def test_permissions_boundary_deny_suppresses_identity_finding():
+    inventory = {
+        "UserDetailList": [
+            {
+                "UserName": "analyst",
+                "Arn": "arn:aws:iam::000000000000:user/analyst",
+                "GroupList": [],
+                "AttachedManagedPolicies": [],
+                "PermissionsBoundary": {
+                    "PolicyDocument": {
+                        "Statement": [{"Effect": "Deny", "Action": "iam:DeleteUser", "Resource": "*"}]
+                    }
+                },
+                "UserPolicyList": [
+                    {
+                        "PolicyName": "DeleteUsers",
+                        "PolicyDocument": {"Statement": [{"Effect": "Allow", "Action": "iam:DeleteUser", "Resource": "*"}]},
+                    }
+                ],
+            }
+        ],
+        "GroupDetailList": [],
+        "RoleDetailList": [],
+        "Policies": [],
+    }
+
+    assert analyze_inventory(inventory)["findings"] == []
+
+
+def test_scp_deny_suppresses_role_assumption_path():
+    user_arn = "arn:aws:iam::000000000000:user/analyst"
+    role_arn = "arn:aws:iam::000000000000:role/DeploymentRole"
+    inventory = {
+        "UserDetailList": [
+            {
+                "UserName": "analyst",
+                "Arn": user_arn,
+                "GroupList": [],
+                "AttachedManagedPolicies": [],
+                "UserPolicyList": [{"PolicyName": "Assume", "PolicyDocument": {"Statement": [{"Effect": "Allow", "Action": "sts:AssumeRole", "Resource": role_arn}]}}],
+            }
+        ],
+        "GroupDetailList": [],
+        "RoleDetailList": [{
+            "RoleName": "DeploymentRole",
+            "Arn": role_arn,
+            "AssumeRolePolicyDocument": {"Statement": [{"Effect": "Allow", "Principal": {"AWS": user_arn}, "Action": "sts:AssumeRole"}]},
+            "AttachedManagedPolicies": [{"PolicyName": "AdministratorAccess"}],
+            "RolePolicyList": [],
+        }],
+        "Policies": [],
+        "Organizations": {
+            "Accounts": [{"Id": "000000000000", "ParentId": "r-root"}],
+            "SCPs": [{"PolicyName": "DenyRoleAssumption", "TargetIds": ["000000000000"], "PolicyDocument": {"Statement": [{"Effect": "Deny", "Action": "sts:AssumeRole", "Resource": "*"}]}}],
+        },
+    }
+
+    assert analyze_inventory(inventory)["findings"] == []
+
+
+def test_resource_policy_deny_suppresses_unrestricted_identity_finding():
+    inventory = {
+        "UserDetailList": [{
+            "UserName": "analyst",
+            "Arn": "arn:aws:iam::000000000000:user/analyst",
+            "GroupList": [],
+            "AttachedManagedPolicies": [],
+            "UserPolicyList": [{"PolicyName": "Wide", "PolicyDocument": {"Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]}}],
+        }],
+        "GroupDetailList": [],
+        "RoleDetailList": [],
+        "Policies": [],
+        "ResourcePolicies": [{"ResourceArn": "*", "PolicyName": "DenyAll", "PolicyDocument": {"Statement": [{"Effect": "Deny", "Principal": {"AWS": "arn:aws:iam::000000000000:user/analyst"}, "Action": "*", "Resource": "*"}]}}],
+    }
+
+    assert analyze_inventory(inventory)["findings"] == []

@@ -31,6 +31,20 @@ Open `http://localhost:3000`, upload `data\sample-iam-inventory.json`, and revie
 
 The sample contains 8 users, 4 groups, 6 roles, and 8 policies. It intentionally mixes safe access with group inheritance, unrestricted access, user lifecycle permissions, and privileged role-assumption paths so the graph has meaningful relationships to inspect.
 
+### Coverage input contract
+
+The required AWS-shaped sections remain `UserDetailList`, `GroupDetailList`, `RoleDetailList`, and `Policies`. The following optional sections add context without changing the IAM export:
+
+- `IdentityMetadata`: trusted HR/IdP rows joined by `PrincipalArn`; includes `EmployeeId`, `DisplayName`, `JobTitle`, `Department`, `Manager`, `EmploymentType`, `Status`, and `IdentityProvider`. CY-06 never guesses these fields from an IAM username.
+- `ResourcePolicies`: `{PolicyName, PolicyArn, ResourceArn, ResourceType, PolicyDocument}` rows for S3, KMS, and similar resources.
+- `Organizations`: `{OrganizationId, RootId, OUs, Accounts, SCPs}` with parent IDs and SCP target IDs.
+- `Sessions`: `{SessionArn, SourcePrincipal, RoleArn, SessionPolicy}` for temporary STS sessions.
+- `PermissionsBoundary`: an optional object on a user or role, with `PermissionsBoundaryArn`, `PolicyName`, and `PolicyDocument`.
+
+The analyzer combines these sources conservatively. Explicit Deny wins; boundaries and SCPs restrict permissions rather than granting them. Missing session or policy context is surfaced as `review_required`. The current release models resource-policy relationships and Deny gates; it does not claim access solely from a resource policy or fully evaluate every AWS condition key.
+
+For the included fixture, the analyzer returns 53 graph nodes, 41 graph edges, and coverage counts of 8 metadata rows, 2 resource policies, 1 boundary, 1 SCP, and 2 sessions. All fixture people and HR values are synthetic.
+
 ## Local AWS SSO setup and run
 
 Configure a named AWS CLI SSO profile locally. Do not add access keys to the repository.

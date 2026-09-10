@@ -91,6 +91,7 @@ export default function Home() {
               </div>
             </div>
             {inventory && <p className="font-mono text-xs text-[#60716e]">{count(inventory.UserDetailList)} users · {count(inventory.GroupDetailList)} groups · {count(inventory.RoleDetailList)} roles · {count(inventory.Policies)} policies</p>}
+            {report && <CoverageSummary coverage={report.coverage} />}
             <div className="flex flex-1 items-center rounded-xl border border-dashed border-[#c7d3cf] bg-white p-7 sm:p-10">
               {report ? <div><p className="text-sm font-semibold text-[#17252f]">Snapshot ready for review</p><p className="mt-2 max-w-xl text-sm leading-6 text-[#60716e]">Use the graph to trace relationships, then use the findings rail to inspect evidence and recommended fixes.</p>{report.warnings.length ? <p className="mt-4 text-xs leading-5 text-[#8a611b]">{report.warnings.length} item(s) require review because some IAM conditions are not fully evaluated.</p> : null}</div> : <div><p className="text-sm font-medium text-[#314842]">No analysis loaded</p><p className="mt-2 text-sm leading-6 text-[#71817e]">Upload an IAM snapshot to see relationships, findings, and evidence paths.</p></div>}
             </div>
@@ -102,13 +103,13 @@ export default function Home() {
             <p className="max-w-md text-right text-sm leading-6 text-[#60716e]">Graph first for context. Findings rail for evidence. Tables below for source detail.</p>
           </div>
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
-            <IamGraph inventory={inventory} findings={report?.findings ?? []} />
+            <IamGraph graph={report?.graph ?? { nodes: [], edges: [] }} findings={report?.findings ?? []} />
             <aside className="rounded-xl border border-[#d4dfdc] bg-white p-5" aria-labelledby="findings-heading">
               <div className="mb-5 flex items-center justify-between gap-3 border-b border-[#e3ebe7] pb-4"><div><p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Risk review</p><h2 id="findings-heading" className="mt-1 text-xl font-semibold text-[#17252f]">Findings</h2></div><span className="font-mono text-xs text-[#71817e]">{report?.findings.length ?? 0} total</span></div>
               <FindingsList findings={report?.findings ?? []} />
             </aside>
           </div>
-          <div className="mt-8"><InventoryTables inventory={inventory} /></div>
+          <div className="mt-8"><InventoryTables inventory={inventory} identityMetadata={report?.identity_metadata ?? []} /></div>
         </div>}
       </div>
     </main>
@@ -122,4 +123,15 @@ function Metric({ label, value, tone }: { label: string; value: number | string;
 
 function count(value: unknown) {
   return Array.isArray(value) ? value.length : 0;
+}
+
+function CoverageSummary({ coverage }: { coverage: Record<string, number> }) {
+  const items = [
+    ["HR / IdP", coverage.identity_metadata],
+    ["Resource policies", coverage.resource_policies],
+    ["Boundaries", coverage.boundaries],
+    ["SCPs", coverage.scp_policies],
+    ["Sessions", coverage.sessions],
+  ] as const;
+  return <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">{items.map(([label, value]) => <div key={label} className="rounded-lg border border-[#dce5e1] bg-[#f7faf7] px-3 py-2"><p className="text-[10px] uppercase tracking-wider text-[#71817e]">{label}</p><p className="mt-1 font-mono text-sm font-semibold text-[#314842]">{value}</p></div>)}</div>;
 }

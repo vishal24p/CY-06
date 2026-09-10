@@ -52,7 +52,15 @@
       "Arn": "arn:aws:iam::000000000000:user/emma",
       "GroupList": ["Developers"],
       "AttachedManagedPolicies": [],
-      "UserPolicyList": []
+      "UserPolicyList": [],
+      "PermissionsBoundary": {
+        "PermissionsBoundaryArn": "arn:aws:iam::000000000000:policy/AnalystBoundary",
+        "PolicyName": "AnalystBoundary",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{"Effect": "Allow", "Action": ["s3:GetObject", "athena:GetQueryResults"], "Resource": "*"}]
+        }
+      }
     },
     {
       "Path": "/operations/",
@@ -182,5 +190,37 @@
     {"PolicyName": "SupportAutomation", "Arn": "arn:aws:iam::000000000000:policy/SupportAutomation", "AttachmentCount": 1, "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "ssm:StartSession", "Resource": "arn:aws:ec2:ap-south-1:000000000000:instance/*"}]}},
     {"PolicyName": "AssumeProductionRole", "Arn": "arn:aws:iam::000000000000:policy/AssumeProductionRole", "AttachmentCount": 1},
     {"PolicyName": "UserLifecycle", "Arn": "arn:aws:iam::000000000000:policy/UserLifecycle", "AttachmentCount": 1}
+  ],
+  "IdentityMetadata": [
+    {"PrincipalArn": "arn:aws:iam::000000000000:user/analyst", "EmployeeId": "EMP-1001", "DisplayName": "Aarav Sharma", "JobTitle": "Data Analyst", "Department": "Analytics", "Manager": "Meera Kapoor", "EmploymentType": "Full-time", "Status": "Active", "IdentityProvider": "synthetic-idp"},
+    {"PrincipalArn": "arn:aws:iam::000000000000:user/alice", "EmployeeId": "EMP-1002", "DisplayName": "Alice Chen", "JobTitle": "Platform Engineer", "Department": "Engineering", "Manager": "Rohan Mehta", "EmploymentType": "Full-time", "Status": "Active", "IdentityProvider": "synthetic-idp"},
+    {"PrincipalArn": "arn:aws:iam::000000000000:user/bob", "EmployeeId": "EMP-1003", "DisplayName": "Bob Williams", "JobTitle": "Cloud Engineer", "Department": "Engineering", "Manager": "Rohan Mehta", "EmploymentType": "Full-time", "Status": "Active", "IdentityProvider": "synthetic-idp"},
+    {"PrincipalArn": "arn:aws:iam::000000000000:user/carol", "EmployeeId": "EMP-1004", "DisplayName": "Carol Davis", "JobTitle": "Release Engineer", "Department": "Engineering", "Manager": "Rohan Mehta", "EmploymentType": "Full-time", "Status": "Active", "IdentityProvider": "synthetic-idp"},
+    {"PrincipalArn": "arn:aws:iam::000000000000:user/diego", "EmployeeId": "EMP-1005", "DisplayName": "Diego Morales", "JobTitle": "Software Engineer", "Department": "Engineering", "Manager": "Rohan Mehta", "EmploymentType": "Contractor", "Status": "Active", "IdentityProvider": "synthetic-idp"},
+    {"PrincipalArn": "arn:aws:iam::000000000000:user/emma", "EmployeeId": "EMP-1006", "DisplayName": "Emma Wilson", "JobTitle": "QA Engineer", "Department": "Engineering", "Manager": "Rohan Mehta", "EmploymentType": "Full-time", "Status": "Active", "IdentityProvider": "synthetic-idp"},
+    {"PrincipalArn": "arn:aws:iam::000000000000:user/farah", "EmployeeId": "EMP-1007", "DisplayName": "Farah Khan", "JobTitle": "Support Specialist", "Department": "Operations", "Manager": "Neha Singh", "EmploymentType": "Full-time", "Status": "Active", "IdentityProvider": "synthetic-idp"},
+    {"PrincipalArn": "arn:aws:iam::000000000000:user/gina", "EmployeeId": "EMP-1008", "DisplayName": "Gina Patel", "JobTitle": "IT Operations Analyst", "Department": "Operations", "Manager": "Neha Singh", "EmploymentType": "Full-time", "Status": "Active", "IdentityProvider": "synthetic-idp"}
+  ],
+  "ResourcePolicies": [
+    {"PolicyName": "CompanyDataBucketPolicy", "PolicyArn": "arn:aws:s3:::company-data", "ResourceArn": "arn:aws:s3:::company-data", "ResourceType": "s3_bucket", "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"AWS": "arn:aws:iam::000000000000:role/DataPipelineRole"}, "Action": ["s3:GetObject", "s3:PutObject"], "Resource": "arn:aws:s3:::company-data/*"}]}},
+    {"PolicyName": "AnalyticsKeyPolicy", "PolicyArn": "arn:aws:kms:ap-south-1:000000000000:key/example-key", "ResourceArn": "arn:aws:kms:ap-south-1:000000000000:key/example-key", "ResourceType": "kms_key", "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"AWS": "arn:aws:iam::000000000000:role/DataPipelineRole"}, "Action": "kms:Decrypt", "Resource": "*"}]}}
+  ],
+  "Organizations": {
+    "OrganizationId": "o-cy06demo",
+    "RootId": "r-cy06root",
+    "OUs": [
+      {"Id": "ou-engineering", "Name": "Engineering", "ParentId": "r-cy06root"},
+      {"Id": "ou-operations", "Name": "Operations", "ParentId": "r-cy06root"}
+    ],
+    "Accounts": [
+      {"Id": "000000000000", "Name": "Development", "ParentId": "ou-engineering", "UserArns": ["arn:aws:iam::000000000000:user/carol"], "RoleArns": ["arn:aws:iam::000000000000:role/ProductionDeploymentRole"]}
+    ],
+    "SCPs": [
+      {"PolicyArn": "arn:aws:organizations::000000000000:policy/o-cy06demo/service_control_policy/p-CY06SAFE", "PolicyName": "DenyDangerousProductionActions", "TargetIds": ["ou-engineering"], "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Action": ["ec2:TerminateInstances", "iam:DeleteRole"], "Resource": "*"}]}}
+    ]
+  },
+  "Sessions": [
+    {"SessionArn": "arn:aws:sts::000000000000:assumed-role/DataPipelineRole/pipeline-run-20260910", "SourcePrincipal": "arn:aws:iam::000000000000:user/carol", "RoleArn": "arn:aws:iam::000000000000:role/DataPipelineRole", "SessionPolicy": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject"], "Resource": "arn:aws:s3:::company-data/*"}]}},
+    {"SessionArn": "arn:aws:sts::000000000000:assumed-role/SupportAutomationRole/support-run", "SourcePrincipal": "arn:aws:iam::000000000000:user/farah", "RoleArn": "arn:aws:iam::000000000000:role/SupportAutomationRole"}
   ]
 }
