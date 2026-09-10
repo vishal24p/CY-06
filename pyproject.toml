@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "cy06"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["boto3"]
+dependencies = ["boto3", "fastapi", "uvicorn"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

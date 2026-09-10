@@ -1,4 +1,6 @@
-# CY-06 Module 1
+# CY-06
+
+Read-only IAM privilege-path analysis. The Python rules engine is authoritative; the Next.js UI only presents its findings.
 
 ## Local JSON import
 
@@ -9,6 +11,25 @@ Run the importer without AWS credentials using the AWS-shaped sample fixture:
 ```
 
 The output is a safe import summary. The fixture is synthetic and contains no credentials.
+
+## Local analyzer and UI
+
+Start the Python API in one terminal:
+
+```powershell
+.venv\Scripts\python.exe -m uvicorn cy06.api:app --reload --port 8000
+```
+
+Start the Next.js UI in another:
+
+```powershell
+cd frontend
+npm run dev
+```
+
+Open `http://localhost:3000`, upload `data\sample-iam-inventory.json`, and review the findings. The UI sends the file to the local API; it does not contact AWS.
+
+The sample currently demonstrates one critical finding: `analyst` can assume the privileged `DeploymentRole`.
 
 ## Local AWS SSO setup and run
 
@@ -30,4 +51,4 @@ arn:aws:iam::820919093456:role/PrivilegePathFinderReadOnlyRole
 
 Successful output is JSON with `status: "ok"`, account ID `820919093456`, source ARN, assumed-role ARN, and expiration. It contains no access keys, secret keys, session tokens, or boto3 session data.
 
-Failures are concise messages on stderr with a non-zero exit code. Module 1 performs identity verification and read-only role assumption only; inventory collection is deferred to Module 2.
+Failures are concise messages on stderr with a non-zero exit code. AWS collection remains read-only and is separate from the local JSON workflow.
