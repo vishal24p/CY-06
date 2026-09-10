@@ -46,9 +46,12 @@ def _dispatch(name: str, arguments: dict[str, Any], tools: IdentitySecurityTools
     if name not in READ_ONLY_TOOL_NAMES:
         raise ChatError("Requested tool is not available to chat")
     try:
-        return getattr(tools, name)(**arguments)
-    except (AttributeError, IdentitySecurityError, TypeError) as error:
+        method = getattr(tools, name)
+        return method(**arguments)
+    except IdentitySecurityError as error:
         raise ChatError(str(error)) from error
+    except Exception as error:
+        raise ChatError("Local tool failed") from error
 
 
 def run_chat(
@@ -60,11 +63,12 @@ def run_chat(
     """Send chat messages to a configured provider and execute read-only calls."""
     base_url = _required_environment("CY06_CHAT_BASE_URL")
     model = _required_environment("CY06_CHAT_MODEL")
-    if not isinstance(messages, list) or not all(
-        isinstance(message, dict) and isinstance(message.get("role"), str) and isinstance(message.get("content"), str)
-        for message in messages
-    ):
+    if not isinstance(messages, list) or len(messages) > 20:
+        raise ChatError("messages must contain at most 20 items")
+    if not all(isinstance(message, dict) and isinstance(message.get("role"), str) and isinstance(message.get("content"), str) for message in messages):
         raise ChatError("messages must contain role and content strings")
+    if any(not 1 <= len(message["content"]) <= 4000 or not message["content"].strip() for message in messages):
+        raise ChatError("message content must be between 1 and 4000 non-blank characters")
 
     endpoint = f"{base_url.rstrip('/')}/chat/completions"
     request_messages: list[dict[str, Any]] = list(messages)
@@ -78,7 +82,7 @@ def run_chat(
             if not isinstance(content, str):
                 raise ChatError("Provider response was invalid")
             return {"message": content, "tool_calls": completed}
-        request_messages.append({"role": "assistant", **message})
+        request_messages.append({**message, "role": "assistant"})
         tools = tools or tools_factory()
         for call_id, name, arguments in tool_calls:
             result = _dispatch(name, arguments, tools)

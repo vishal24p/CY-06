@@ -94,9 +94,60 @@ def test_chat_normalizes_an_unavailable_allowed_tool_implementation(monkeypatch)
     monkeypatch.setenv("CY06_CHAT_BASE_URL", "http://localhost:11434/v1")
     monkeypatch.setenv("CY06_CHAT_MODEL", "llama3")
 
-    with pytest.raises(ChatError, match="list_audit_logs"):
+    with pytest.raises(ChatError, match="Local tool failed"):
         run_chat(
             [{"role": "user", "content": "Show audit logs"}],
             open_url=fake_urlopen(tool_call_then_reply("list_audit_logs")),
             tools_factory=FakeTools,
         )
+
+
+@pytest.mark.parametrize(
+    ("messages", "error"),
+    [
+        ([{"role": "user", "content": ""}], "between 1 and 4000"),
+        ([{"role": "user", "content": "x" * 4001}], "between 1 and 4000"),
+        ([{"role": "user", "content": "ok"}] * 21, "at most 20"),
+    ],
+)
+def test_chat_rejects_messages_outside_approved_bounds(monkeypatch, messages, error):
+    monkeypatch.setenv("CY06_CHAT_BASE_URL", "http://localhost:11434/v1")
+    monkeypatch.setenv("CY06_CHAT_MODEL", "llama3")
+
+    with pytest.raises(ChatError, match=error):
+        run_chat(messages)
+
+
+def test_chat_hides_unexpected_local_tool_failures(monkeypatch):
+    class BrokenTools:
+        def list_security_findings(self):
+            raise RuntimeError("database password: secret")
+
+    monkeypatch.setenv("CY06_CHAT_BASE_URL", "http://localhost:11434/v1")
+    monkeypatch.setenv("CY06_CHAT_MODEL", "llama3")
+
+    with pytest.raises(ChatError, match="Local tool failed") as error:
+        run_chat(
+            [{"role": "user", "content": "Show findings"}],
+            open_url=fake_urlopen(tool_call_then_reply("list_security_findings")),
+            tools_factory=BrokenTools,
+        )
+
+    assert "secret" not in str(error.value)
+
+
+def test_chat_replays_provider_tool_call_as_assistant(monkeypatch):
+    monkeypatch.setenv("CY06_CHAT_BASE_URL", "http://localhost:11434/v1")
+    monkeypatch.setenv("CY06_CHAT_MODEL", "llama3")
+    requests = []
+    responses = tool_call_then_reply("list_security_findings")
+    responses[0]["choices"][0]["message"]["role"] = "system"
+
+    @contextmanager
+    def open_url(request, timeout):
+        requests.append(json.loads(request.data))
+        yield type("Response", (), {"read": lambda self: json.dumps(responses.pop(0)).encode()})()
+
+    run_chat([{"role": "user", "content": "Show findings"}], open_url=open_url, tools_factory=FakeTools)
+
+    assert requests[1]["messages"][-2]["role"] == "assistant"
