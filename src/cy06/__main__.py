@@ -17,14 +17,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
     )
     parser.add_argument("--profile", required=True, help="local AWS profile name")
-    parser.add_argument("--role-arn", default=EXPECTED_ROLE_ARN)
-    parser.add_argument("--region", default="ap-south-1")
+    parser.add_argument("--role-arn", default=EXPECTED_ROLE_ARN, help="assumed role ARN")
+    parser.add_argument("--region", default="ap-south-1", help="AWS region")
     args = parser.parse_args(argv)
 
     try:
         connection = connect(args.profile, args.role_arn, args.region)
     except ConnectionError as error:
         print(f"error: {error}", file=sys.stderr)
+        return 1
+    except Exception:
+        print("error: unexpected connector failure", file=sys.stderr)
         return 1
 
     print(
