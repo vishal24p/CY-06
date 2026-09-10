@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 from urllib.parse import unquote
 
+from ..coverage import build_coverage
 from ..inventory import InventoryError, summarize_inventory
 
 _USER_MUTATIONS = {"iam:createuser", "iam:deleteuser"}
@@ -31,7 +32,9 @@ def analyze_inventory(
     groups = _section(inventory, "GroupDetailList")
     roles = _section(inventory, "RoleDetailList")
     policy_docs = _policy_documents(_section(inventory, "Policies"))
+    coverage = build_coverage(inventory)
     warnings: list[dict[str, Any]] = []
+    warnings.extend(coverage["warnings"])
     findings: list[dict[str, Any]] = []
 
     group_by_user = _groups_by_user(groups)
@@ -81,6 +84,8 @@ def analyze_inventory(
                         continue
                     if _is_denied(statements, action, resource):
                         continue
+                    if _is_supplementally_blocked(inventory, user, principal, action, resource, policy_docs):
+                        continue
                     confidence = "review_required" if statement["conditions"] else "confirmed"
                     if _is_unrestricted(action) and _is_unrestricted(resource):
                         _add_finding(
@@ -119,8 +124,11 @@ def analyze_inventory(
     if approved and not isinstance(approved, list):
         warnings.append({"code": "invalid_context", "field": "approved_admins"})
     for role in roles:
-        if role.get("PermissionsBoundary"):
+        if role.get("PermissionsBoundary") and not isinstance(role["PermissionsBoundary"], dict):
             warnings.append({"code": "review_required", "feature": "PermissionsBoundary"})
+    for session in _section(inventory, "Sessions"):
+        if "SessionPolicy" not in session:
+            warnings.append({"code": "review_required", "feature": "SessionPolicy", "reason": "session policy was not supplied"})
 
     critical = sum(item["severity"] == "critical" for item in findings)
     high = sum(item["severity"] == "high" for item in findings)
@@ -129,6 +137,9 @@ def analyze_inventory(
         "summary": {"findings": len(findings), "critical": critical, "high": high},
         "findings": findings,
         "warnings": _dedupe_warnings(warnings),
+        "graph": {"nodes": coverage["nodes"], "edges": coverage["edges"]},
+        "coverage": coverage["coverage"],
+        "identity_metadata": coverage["metadata"],
     }
 
 
@@ -328,7 +339,7 @@ def _document(raw: Any) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
-def _statements(document: dict[str, Any]) -> list[dict[str, Any]]:
+def _statements(document: Any) -> list[dict[str, Any]]:
     value = document.get("Statement", [])
     values = [value] if isinstance(value, dict) else value
     return [item for item in values if isinstance(item, dict)] if isinstance(values, list) else []
@@ -383,6 +394,85 @@ def _is_denied(statements: Iterable[dict[str, Any]], action: str, resource: str)
         and _matches_any(resource, statement["resources"])
         for statement in statements
     )
+
+
+def _is_supplementally_blocked(
+    inventory: Mapping[str, Any],
+    entity: dict[str, Any],
+    principal: str,
+    action: str,
+    resource: str,
+    policy_docs: dict[str, dict[str, Any]],
+) -> bool:
+    boundary = entity.get("PermissionsBoundary")
+    if isinstance(boundary, dict):
+        document = _document(boundary.get("PolicyDocument"))
+        if document is None:
+            reference = str(boundary.get("PermissionsBoundaryArn") or boundary.get("PolicyName") or "")
+            document = policy_docs.get(reference)
+        if document and not _document_allows(document, action, resource):
+            return True
+    if _resource_policy_denies(inventory, principal, action, resource):
+        return True
+    return _scp_denies(inventory, principal, action, resource)
+
+
+def _document_allows(document: dict[str, Any], action: str, resource: str) -> bool:
+    statements = _statements(document)
+    if any(
+        statement.get("Effect") == "Deny"
+        and _matches_any(action, _values(statement.get("Action")))
+        and _matches_any(resource, _values(statement.get("Resource")) or ["*"])
+        for statement in statements
+    ):
+        return False
+    return any(
+        statement.get("Effect") == "Allow"
+        and "Condition" not in statement
+        and _matches_any(action, _values(statement.get("Action")))
+        and _matches_any(resource, _values(statement.get("Resource")) or ["*"])
+        for statement in statements
+    )
+
+
+def _resource_policy_denies(inventory: Mapping[str, Any], principal: str, action: str, resource: str) -> bool:
+    for policy in _section(inventory, "ResourcePolicies"):
+        for statement in _statements(policy.get("PolicyDocument")):
+            if statement.get("Effect") != "Deny":
+                continue
+            principals = _values(statement.get("Principal"))
+            if isinstance(statement.get("Principal"), dict):
+                principals = [item for key in ("AWS", "Service", "Federated") for item in _values(statement["Principal"].get(key))]
+            if ("*" in principals or principal in principals) and _matches_any(action, _values(statement.get("Action"))) and _matches_any(resource, _values(statement.get("Resource")) or ["*"]):
+                return True
+    return False
+
+
+def _scp_denies(inventory: Mapping[str, Any], principal: str, action: str, resource: str) -> bool:
+    organization = inventory.get("Organizations")
+    if not isinstance(organization, dict):
+        return False
+    account = _account_id(principal)
+    if not account:
+        return False
+    targets = {account}
+    parents = {str(item.get("Id")): str(item.get("ParentId")) for item in _section_like(organization.get("Accounts")) if item.get("Id") and item.get("ParentId")}
+    parents.update({str(item.get("Id")): str(item.get("ParentId")) for item in _section_like(organization.get("OUs")) if item.get("Id") and item.get("ParentId")})
+    current = account
+    while current in parents:
+        current = parents[current]
+        targets.add(current)
+    for policy in _section_like(organization.get("SCPs")):
+        if not targets.intersection(_values(policy.get("TargetIds"))):
+            continue
+        for statement in _statements(policy.get("PolicyDocument")):
+            if statement.get("Effect") == "Deny" and _matches_any(action, _values(statement.get("Action"))) and _matches_any(resource, _values(statement.get("Resource")) or ["*"]):
+                return True
+    return False
+
+
+def _section_like(value: Any) -> list[dict[str, Any]]:
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
 
 
 def _account_id(arn: str) -> str:

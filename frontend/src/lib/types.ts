@@ -10,6 +10,33 @@ export type Finding = {
   confidence: "confirmed" | "review_required";
 };
 
+export type GraphNode = {
+  id: string;
+  type: string;
+  label: string;
+  source: string;
+};
+
+export type GraphEdge = {
+  from: string;
+  to: string;
+  type: string;
+  label?: string;
+  evidence?: string;
+};
+
+export type IdentityMetadata = {
+  principal_arn: string;
+  employee_id: string;
+  display_name: string;
+  job_title: string;
+  department: string;
+  manager: string;
+  employment_type: string;
+  status: string;
+  identity_provider: string;
+};
+
 export type AnalysisReport = {
   status: "ok";
   summary: {
@@ -19,6 +46,12 @@ export type AnalysisReport = {
   };
   findings: Finding[];
   warnings: Array<Record<string, string>>;
+  graph: {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+  };
+  coverage: Record<string, number>;
+  identity_metadata: IdentityMetadata[];
 };
 
 export type Inventory = Record<string, unknown> & {
@@ -26,4 +59,8 @@ export type Inventory = Record<string, unknown> & {
   GroupDetailList?: unknown[];
   RoleDetailList?: unknown[];
   Policies?: unknown[];
+  IdentityMetadata?: unknown[];
+  ResourcePolicies?: unknown[];
+  Organizations?: unknown;
+  Sessions?: unknown[];
 };

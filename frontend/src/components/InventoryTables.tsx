@@ -1,10 +1,14 @@
-import type { Inventory } from "@/lib/types";
+import type { IdentityMetadata, Inventory } from "@/lib/types";
 
-export function InventoryTables({ inventory }: { inventory: Inventory }) {
+export function InventoryTables({ inventory, identityMetadata }: { inventory: Inventory; identityMetadata: IdentityMetadata[] }) {
   const users = records(inventory.UserDetailList);
   const groups = records(inventory.GroupDetailList);
   const roles = records(inventory.RoleDetailList);
   const policies = records(inventory.Policies);
+  const resources = records(inventory.ResourcePolicies);
+  const sessions = records(inventory.Sessions);
+  const scps = isRecord(inventory.Organizations) ? records(inventory.Organizations.SCPs) : [];
+  const boundaries = [...users, ...roles].flatMap((entity) => isRecord(entity.PermissionsBoundary) ? [[text(entity.UserName ?? entity.RoleName), text(entity.PermissionsBoundary.PolicyName ?? entity.PermissionsBoundary.PermissionsBoundaryArn)]] : []);
   return (
     <section className="space-y-5" aria-labelledby="tables-heading">
       <div><p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Source inventory</p><h2 id="tables-heading" className="mt-1 text-xl font-semibold text-[#17252f]">IAM tables</h2></div>
@@ -12,6 +16,12 @@ export function InventoryTables({ inventory }: { inventory: Inventory }) {
       <DataTable title="Groups" columns={["Group", "ARN", "Members", "Policies"]} rows={groups.map((group) => [text(group.GroupName), text(group.Arn), list(group.Users, "UserName"), list([...array(group.AttachedManagedPolicies), ...array(group.GroupPolicyList)], "PolicyName")])} />
       <DataTable title="Roles" columns={["Role", "ARN", "Trusted principals", "Policies"]} rows={roles.map((role) => [text(role.RoleName), text(role.Arn), trusted(role.AssumeRolePolicyDocument), list([...array(role.AttachedManagedPolicies), ...array(role.RolePolicyList)], "PolicyName")])} />
       <DataTable title="Policies" columns={["Policy", "ARN", "Attachments"]} rows={policies.map((policy) => [text(policy.PolicyName), text(policy.Arn), text(policy.AttachmentCount)])} />
+      <div className="border-t border-[#cad6d2] pt-5"><p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Supplemental authorization sources</p><p className="mt-1 text-sm text-[#71817e]">These records refine effective access; they are not inferred from usernames.</p></div>
+      <DataTable title="HR / IdP metadata" columns={["Person", "Job title", "Department", "Status", "Provider"]} rows={identityMetadata.map((item) => [item.display_name, item.job_title, item.department, item.status, item.identity_provider])} />
+      <DataTable title="Resource policies" columns={["Policy", "Resource", "Policy ARN"]} rows={resources.map((item) => [text(item.PolicyName), text(item.ResourceArn), text(item.PolicyArn)])} />
+      <DataTable title="Organizations SCPs" columns={["SCP", "Targets", "Policy ARN"]} rows={scps.map((item) => [text(item.PolicyName), list(item.TargetIds), text(item.PolicyArn)])} />
+      <DataTable title="Sessions" columns={["Session", "Source principal", "Role", "Session policy"]} rows={sessions.map((item) => [text(item.SessionArn), text(item.SourcePrincipal), text(item.RoleArn), isRecord(item.SessionPolicy) ? "present" : "missing — review required"])} />
+      <DataTable title="Permissions boundaries" columns={["Principal", "Boundary"]} rows={boundaries} />
     </section>
   );
 }

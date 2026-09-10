@@ -26,6 +26,14 @@ def test_analyze_endpoint_returns_report():
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
     assert response.json()["summary"]["findings"] == 0
+    assert response.json()["graph"] == {"nodes": [], "edges": []}
+    assert response.json()["coverage"] == {
+        "identity_metadata": 0,
+        "resource_policies": 0,
+        "boundaries": 0,
+        "scp_policies": 0,
+        "sessions": 0,
+    }
 
 
 def test_analyze_endpoint_rejects_invalid_inventory():
