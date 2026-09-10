@@ -15,6 +15,7 @@ export function ChatPanel() {
   const [draft, setDraft] = useState("");
   const [toolCalls, setToolCalls] = useState<ChatToolCall[]>([]);
   const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
   const [sending, setSending] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -27,12 +28,14 @@ export function ChatPanel() {
     setDraft("");
     setToolCalls([]);
     setError("");
+    setStatus("");
     setSending(true);
 
     try {
       const response = await sendChat(conversation);
       setMessages([...conversation, { role: "assistant", content: response.message }]);
       setToolCalls(response.tool_calls);
+      setStatus(response.message ? `Assistant reply: ${response.message}` : "Assistant reply received.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Chat request failed.");
     } finally {
@@ -51,19 +54,20 @@ export function ChatPanel() {
         {messages.map((message, index) => (
           <li key={`${message.role}-${index}`} className={message.role === "user" ? "rounded-lg bg-[#eef7f4] p-3" : "rounded-lg bg-[#f7faf7] p-3"}>
             <p className="text-xs font-semibold uppercase tracking-wider text-[#60716e]">{message.role === "user" ? "You" : "Assistant"}</p>
-            <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-[#314842]">{message.content}</p>
+            <p className="mt-1 break-words whitespace-pre-wrap text-sm leading-6 text-[#314842]">{message.content}</p>
           </li>
         ))}
       </ol>
 
       <div className="mt-4 min-h-5" aria-live="polite">
         {sending && <p className="text-sm text-[#147d78]">Checking read-only analysis data…</p>}
-        {error && <p className="rounded-lg border border-[#e2b7b1] bg-[#fff3f1] p-3 text-sm leading-5 text-[#a33d34]" role="alert">{error}</p>}
+        {!sending && status && <p className="sr-only" role="status">{status}</p>}
+        {error && <p className="break-words rounded-lg border border-[#e2b7b1] bg-[#fff3f1] p-3 text-sm leading-5 text-[#a33d34]" role="alert">{error}</p>}
       </div>
 
       {toolCalls.length > 0 && (
         <ul className="mt-4 space-y-2" aria-label="Read-only tools used">
-          {toolCalls.map((tool, index) => <li key={`${tool.name}-${index}`} className="rounded-md border border-[#dce5e1] bg-[#f7faf7] px-3 py-2 text-xs text-[#536562]">Read-only tool: <span className="font-mono text-[#314842]">{tool.name}</span></li>)}
+          {toolCalls.map((tool, index) => <li key={`${tool.name}-${index}`} className="break-words rounded-md border border-[#dce5e1] bg-[#f7faf7] px-3 py-2 text-xs text-[#536562]">Read-only tool: <span className="break-words font-mono text-[#314842]">{tool.name}</span></li>)}
         </ul>
       )}
 
