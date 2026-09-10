@@ -20,3 +20,10 @@ export type AnalysisReport = {
   findings: Finding[];
   warnings: Array<Record<string, string>>;
 };
+
+export type Inventory = Record<string, unknown> & {
+  UserDetailList?: unknown[];
+  GroupDetailList?: unknown[];
+  RoleDetailList?: unknown[];
+  Policies?: unknown[];
+};

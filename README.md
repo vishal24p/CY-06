@@ -27,7 +27,7 @@ cd frontend
 npm run dev
 ```
 
-Open `http://localhost:3000`, upload `data\sample-iam-inventory.json`, and review the findings. The UI sends the file to the local API; it does not contact AWS.
+Open `http://localhost:3000`, upload `data\sample-iam-inventory.json`, and review the privilege graph, source tables, and findings. The UI sends the file to the local API; it does not contact AWS.
 
 The sample currently demonstrates one critical finding: `analyst` can assume the privileged `DeploymentRole`.
 

@@ -3,13 +3,16 @@
 import { ChangeEvent, useState } from "react";
 
 import { FindingsList } from "@/components/FindingsList";
+import { IamGraph } from "@/components/IamGraph";
+import { InventoryTables } from "@/components/InventoryTables";
 import { analyzeInventory } from "@/lib/api";
-import type { AnalysisReport } from "@/lib/types";
+import type { AnalysisReport, Inventory } from "@/lib/types";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 export default function Home() {
   const [report, setReport] = useState<AnalysisReport | null>(null);
+  const [inventory, setInventory] = useState<Inventory | null>(null);
   const [filename, setFilename] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,6 +22,7 @@ export default function Home() {
     if (!file) return;
     setFilename(file.name);
     setReport(null);
+    setInventory(null);
     setError("");
 
     if (file.size > MAX_FILE_BYTES) {
@@ -28,8 +32,9 @@ export default function Home() {
 
     setLoading(true);
     try {
-      const inventory = JSON.parse(await file.text());
-      setReport(await analyzeInventory(inventory));
+      const parsed = JSON.parse(await file.text()) as Inventory;
+      setReport(await analyzeInventory(parsed));
+      setInventory(parsed);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Invalid JSON file.");
     } finally {
@@ -75,6 +80,7 @@ export default function Home() {
             {report?.warnings.length ? <p className="mt-4 text-xs text-orange-300">{report.warnings.length} item(s) require review because the MVP cannot fully evaluate them.</p> : null}
           </div>
         </section>
+        {inventory && <div className="mt-8 space-y-8"><IamGraph inventory={inventory} findings={report?.findings ?? []} /><InventoryTables inventory={inventory} /></div>}
       </div>
     </main>
   );
