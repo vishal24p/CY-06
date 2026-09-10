@@ -1,0 +1,63 @@
+{
+  "UserDetailList": [
+    {
+      "Path": "/",
+      "UserName": "analyst",
+      "UserId": "AIDAEXAMPLEANALYST",
+      "Arn": "arn:aws:iam::000000000000:user/analyst",
+      "GroupList": [],
+      "AttachedManagedPolicies": [],
+      "UserPolicyList": [
+        {
+          "PolicyName": "AssumeDeploymentRole",
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": "sts:AssumeRole",
+                "Resource": "arn:aws:iam::000000000000:role/DeploymentRole"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "GroupDetailList": [],
+  "RoleDetailList": [
+    {
+      "Path": "/",
+      "RoleName": "DeploymentRole",
+      "RoleId": "AROAXAMPLEDEPLOYMENT",
+      "Arn": "arn:aws:iam::000000000000:role/DeploymentRole",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "arn:aws:iam::000000000000:user/analyst"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "AttachedManagedPolicies": [
+        {
+          "PolicyName": "AdministratorAccess",
+          "PolicyArn": "arn:aws:iam::aws:policy/AdministratorAccess"
+        }
+      ],
+      "RolePolicyList": [],
+      "InstanceProfileList": []
+    }
+  ],
+  "Policies": [
+    {
+      "PolicyName": "AdministratorAccess",
+      "Arn": "arn:aws:iam::aws:policy/AdministratorAccess",
+      "AttachmentCount": 1
+    }
+  ]
+}

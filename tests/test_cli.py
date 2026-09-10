@@ -3,6 +3,7 @@ import io
 import json
 import unittest
 from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -15,6 +16,26 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(SystemExit) as raised:
             __main__.main([])
         self.assertEqual(raised.exception.code, 2)
+
+    @patch("cy06.__main__.summarize_inventory")
+    @patch("cy06.__main__.load_inventory")
+    def test_local_input_prints_import_summary(self, load_inventory, summarize_inventory):
+        load_inventory.return_value = {"RoleDetailList": []}
+        summarize_inventory.return_value = {
+            "status": "ok",
+            "users": 0,
+            "groups": 0,
+            "roles": 0,
+            "policies": 0,
+            "relationships": 0,
+            "warnings": [],
+        }
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            self.assertEqual(__main__.main(["--input", "inventory.json"]), 0)
+
+        load_inventory.assert_called_once_with(Path("inventory.json"))
+        self.assertEqual(json.loads(stdout.getvalue())["status"], "ok")
 
     @patch("cy06.__main__.connect")
     def test_defaults_and_safe_json_output(self, connect):

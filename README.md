@@ -1,5 +1,15 @@
 # CY-06 Module 1
 
+## Local JSON import
+
+Run the importer without AWS credentials using the AWS-shaped sample fixture:
+
+```powershell
+.venv\Scripts\python.exe -m cy06 --input data\sample-iam-inventory.json
+```
+
+The output is a safe import summary. The fixture is synthetic and contains no credentials.
+
 ## Local AWS SSO setup and run
 
 Configure a named AWS CLI SSO profile locally. Do not add access keys to the repository.
