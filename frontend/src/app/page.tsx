@@ -3,6 +3,7 @@
 import { ChangeEvent, useState } from "react";
 
 import { FindingsList } from "@/components/FindingsList";
+import { ChatPanel } from "@/components/ChatPanel";
 import { IamGraph } from "@/components/IamGraph";
 import { InventoryTables } from "@/components/InventoryTables";
 import { analyzeInventory } from "@/lib/api";
@@ -104,10 +105,13 @@ export default function Home() {
           </div>
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
             <IamGraph graph={report?.graph ?? { nodes: [], edges: [] }} findings={report?.findings ?? []} />
-            <aside className="rounded-xl border border-[#d4dfdc] bg-white p-5" aria-labelledby="findings-heading">
-              <div className="mb-5 flex items-center justify-between gap-3 border-b border-[#e3ebe7] pb-4"><div><p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Risk review</p><h2 id="findings-heading" className="mt-1 text-xl font-semibold text-[#17252f]">Findings</h2></div><span className="font-mono text-xs text-[#71817e]">{report?.findings.length ?? 0} total</span></div>
-              <FindingsList findings={report?.findings ?? []} />
-            </aside>
+            <div className="flex min-w-0 flex-col gap-5">
+              <aside className="rounded-xl border border-[#d4dfdc] bg-white p-5" aria-labelledby="findings-heading">
+                <div className="mb-5 flex items-center justify-between gap-3 border-b border-[#e3ebe7] pb-4"><div><p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Risk review</p><h2 id="findings-heading" className="mt-1 text-xl font-semibold text-[#17252f]">Findings</h2></div><span className="font-mono text-xs text-[#71817e]">{report?.findings.length ?? 0} total</span></div>
+                <FindingsList findings={report?.findings ?? []} />
+              </aside>
+              <ChatPanel />
+            </div>
           </div>
           <div className="mt-8"><InventoryTables inventory={inventory} identityMetadata={report?.identity_metadata ?? []} /></div>
         </div>}
