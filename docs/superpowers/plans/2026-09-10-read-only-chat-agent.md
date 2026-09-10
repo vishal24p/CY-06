@@ -374,4 +374,3 @@ git commit -m "feat: add read-only identity chat panel"
 - Spec coverage: Tasks 1–2 cover settings, validation, allowlist, bounded tool loop, errors, and mutation exclusion. Tasks 3–4 cover proxying, responsive accessible UI, tool status, documentation, and verification.
 - Placeholder scan: every task names its files, interfaces, tests, commands, and implementation shape.
 - Type consistency: FastAPI accepts ChatMessage objects; proxy forwards them; sendChat uses browser ChatMessage; ChatPanel consumes ChatResponse and ChatToolCall.
-
