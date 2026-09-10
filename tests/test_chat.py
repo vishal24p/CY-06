@@ -22,12 +22,12 @@ def tool_call_then_reply(name, arguments="{}"):
     ]
 
 
-def fake_urlopen(responses):
+def fake_urlopen(responses, *, expected_timeout=30):
     responses = iter(responses)
 
     @contextmanager
     def open_url(request, timeout):
-        assert timeout == 30
+        assert timeout == expected_timeout
         yield type("Response", (), {"read": lambda self: json.dumps(next(responses)).encode()})()
 
     return open_url
@@ -70,6 +70,29 @@ def test_chat_accepts_https_provider_url(monkeypatch):
     )
 
     assert result["message"] == "Read-only reply."
+
+
+def test_chat_uses_configured_provider_timeout(monkeypatch):
+    monkeypatch.setenv("CY06_CHAT_BASE_URL", "https://provider.example/v1")
+    monkeypatch.setenv("CY06_CHAT_MODEL", "model")
+    monkeypatch.setenv("CY06_CHAT_TIMEOUT_SECONDS", "120")
+
+    result = run_chat(
+        [{"role": "user", "content": "List findings"}],
+        open_url=fake_urlopen([{"choices": [{"message": {"content": "Read-only reply."}}]}], expected_timeout=120),
+    )
+
+    assert result["message"] == "Read-only reply."
+
+
+@pytest.mark.parametrize("timeout", ["zero", "0", "301"])
+def test_chat_rejects_invalid_provider_timeout(monkeypatch, timeout):
+    monkeypatch.setenv("CY06_CHAT_BASE_URL", "https://provider.example/v1")
+    monkeypatch.setenv("CY06_CHAT_MODEL", "model")
+    monkeypatch.setenv("CY06_CHAT_TIMEOUT_SECONDS", timeout)
+
+    with pytest.raises(ChatError, match="CY06_CHAT_TIMEOUT_SECONDS"):
+        run_chat([{"role": "user", "content": "List findings"}])
 
 
 def test_chat_registry_never_exposes_mutation_tools():

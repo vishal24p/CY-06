@@ -51,13 +51,13 @@ export function ChatPanel() {
   }
 
   return (
-    <section className="rounded-xl border border-[#d4dfdc] bg-white p-5" aria-labelledby="chat-heading">
+    <section className="flex h-full min-h-0 flex-col rounded-xl border border-[#d4dfdc] bg-white p-5" aria-labelledby="chat-heading">
       <div className="border-b border-[#e3ebe7] pb-4">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Read-only assistant</p>
         <h2 id="chat-heading" className="mt-1 text-xl font-semibold text-[#17252f]">Ask about this analysis</h2>
       </div>
 
-      <ol className="mt-4 max-h-[50vh] space-y-3 overflow-y-auto pr-1 md:max-h-[32rem]" aria-label="Conversation">
+      <ol className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1" aria-label="Conversation">
         {messages.map((message, index) => (
           <li key={`${message.role}-${index}`} className={message.role === "user" ? "rounded-lg bg-[#eef7f4] p-3" : "rounded-lg bg-[#f7faf7] p-3"}>
             <p className="text-xs font-semibold uppercase tracking-wider text-[#60716e]">{message.role === "user" ? "You" : "Assistant"}</p>

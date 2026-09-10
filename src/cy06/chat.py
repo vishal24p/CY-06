@@ -19,6 +19,8 @@ READ_ONLY_TOOL_NAMES = frozenset({
     "verify_remediation",
 })
 MAX_TOOL_ROUNDS = 3
+DEFAULT_PROVIDER_TIMEOUT_SECONDS = 30
+MAX_PROVIDER_TIMEOUT_SECONDS = 300
 SYSTEM_INSTRUCTION = (
     "CY-06 uses only the fixed read-only tool registry. Never import, simulate, "
     "apply, approve, or otherwise mutate data."
@@ -70,6 +72,7 @@ def run_chat(
     """Send chat messages to a configured provider and execute read-only calls."""
     base_url = _provider_base_url(_required_environment("CY06_CHAT_BASE_URL"))
     model = _required_environment("CY06_CHAT_MODEL")
+    timeout_seconds = _provider_timeout_seconds()
     if not isinstance(messages, list) or len(messages) > 20:
         raise ChatError("messages must contain at most 20 items")
     if not all(isinstance(message, dict) and isinstance(message.get("role"), str) and isinstance(message.get("content"), str) for message in messages):
@@ -84,7 +87,7 @@ def run_chat(
     completed: list[dict[str, str]] = []
     tools: IdentitySecurityTools | None = None
     for _ in range(MAX_TOOL_ROUNDS):
-        message = _provider_message(endpoint, model, request_messages, open_url)
+        message = _provider_message(endpoint, model, request_messages, open_url, timeout_seconds)
         tool_calls = _tool_calls(message)
         if not tool_calls:
             content = message.get("content")
@@ -105,6 +108,17 @@ def _required_environment(name: str) -> str:
     if not value:
         raise ChatError(f"{name} is required")
     return value
+
+
+def _provider_timeout_seconds() -> int:
+    value = os.environ.get("CY06_CHAT_TIMEOUT_SECONDS", str(DEFAULT_PROVIDER_TIMEOUT_SECONDS)).strip()
+    try:
+        timeout_seconds = int(value)
+    except ValueError as error:
+        raise ChatError("CY06_CHAT_TIMEOUT_SECONDS must be an integer between 1 and 300") from error
+    if not 1 <= timeout_seconds <= MAX_PROVIDER_TIMEOUT_SECONDS:
+        raise ChatError("CY06_CHAT_TIMEOUT_SECONDS must be an integer between 1 and 300")
+    return timeout_seconds
 
 
 def _provider_base_url(value: str) -> str:
@@ -147,13 +161,13 @@ def _validate_tool_arguments(name: str, arguments: dict[str, Any]) -> None:
             raise ChatError("Tool arguments are invalid")
 
 
-def _provider_message(endpoint: str, model: str, messages: list[dict[str, Any]], open_url: Callable[..., Any]) -> dict[str, Any]:
+def _provider_message(endpoint: str, model: str, messages: list[dict[str, Any]], open_url: Callable[..., Any], timeout_seconds: int) -> dict[str, Any]:
     headers = {"Content-Type": "application/json"}
     if api_key := os.environ.get("CY06_CHAT_API_KEY"):
         headers["Authorization"] = f"Bearer {api_key}"
     try:
         request = Request(endpoint, data=json.dumps({"model": model, "messages": messages, "tools": _TOOLS}).encode(), headers=headers, method="POST")
-        with open_url(request, timeout=30) as response:
+        with open_url(request, timeout=timeout_seconds) as response:
             payload = json.loads(response.read())
     except (HTTPError, URLError, OSError, json.JSONDecodeError, UnicodeDecodeError, TypeError, ValueError) as error:
         raise ChatError("Provider request failed") from error

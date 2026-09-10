@@ -86,5 +86,6 @@ The chat agent uses the locally imported analysis data and exposes no mutation a
 - `CY06_CHAT_BASE_URL`
 - `CY06_CHAT_MODEL`
 - `CY06_CHAT_API_KEY` (optional)
+- `CY06_CHAT_TIMEOUT_SECONDS` (optional; defaults to 30, maximum 300)
 
 The browser posts `{ "messages": [{ "role": "user" | "assistant", "content": "..." }] }` to `/api/chat`, which proxies to `POST /api/v1/chat`; replies contain a message and read-only tool names. When configured with a remote provider, that provider receives chat messages plus read-only tool-call and tool-result data.
