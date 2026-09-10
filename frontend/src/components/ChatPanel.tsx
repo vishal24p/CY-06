@@ -22,12 +22,13 @@ export function ChatPanel() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const content = draft.trim();
-    if (!content || sending) return;
-    if (content.length > MAX_CHAT_MESSAGE_CHARS) {
+    if (sending) return;
+    if (draft.length > MAX_CHAT_MESSAGE_CHARS) {
       setError("Question must be 4,000 characters or fewer.");
       return;
     }
+    const content = draft.trim();
+    if (!content) return;
 
     const conversation = [...messages, { role: "user" as const, content }].slice(-MAX_CHAT_MESSAGES);
     setMessages(conversation);
