@@ -135,8 +135,8 @@ class IdentitySecurityTools:
             raise IdentitySecurityError("sort_by must be name or type")
         return self._query(
             "SELECT entity_id, entity_type, name, data FROM identity_entities "
-            "WHERE (%s IS NULL OR entity_type = %s) "
-            "AND (%s IS NULL OR name ILIKE %s) "
+            "WHERE (%s::text IS NULL OR entity_type = %s) "
+            "AND (%s::text IS NULL OR name ILIKE %s) "
             f"ORDER BY {order_by}, entity_id LIMIT %s OFFSET %s",
             (entity_type, entity_type, search, f"%{search}%" if search else None, _limit(limit), _offset(offset)),
         )
@@ -169,7 +169,7 @@ class IdentitySecurityTools:
     def list_privilege_paths(self, *, risk: str | None = None, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
         return self._query(
             "SELECT path_id, principal_id, target_id, risk, evidence FROM privilege_paths "
-            "WHERE (%s IS NULL OR risk = %s) ORDER BY risk DESC, path_id LIMIT %s OFFSET %s",
+            "WHERE (%s::text IS NULL OR risk = %s) ORDER BY risk DESC, path_id LIMIT %s OFFSET %s",
             (risk, risk, _limit(limit), _offset(offset)),
         )
 
@@ -185,7 +185,7 @@ class IdentitySecurityTools:
     def list_security_findings(self, *, status: str | None = None, risk: str | None = None) -> list[dict[str, Any]]:
         return self._query(
             "SELECT finding_id, path_id, title, risk, status, evidence FROM security_findings "
-            "WHERE (%s IS NULL OR status = %s) AND (%s IS NULL OR risk = %s) "
+            "WHERE (%s::text IS NULL OR status = %s) AND (%s::text IS NULL OR risk = %s) "
             "ORDER BY risk DESC, finding_id",
             (status, status, risk, risk),
         )
@@ -193,7 +193,7 @@ class IdentitySecurityTools:
     def list_remediation_plans(self, *, status: str | None = None) -> list[dict[str, Any]]:
         return self._query(
             "SELECT plan_id, status, change, simulation, created_at, completed_at FROM remediation_plans "
-            "WHERE (%s IS NULL OR status = %s) ORDER BY created_at DESC",
+            "WHERE (%s::text IS NULL OR status = %s) ORDER BY created_at DESC",
             (status, status),
         )
 

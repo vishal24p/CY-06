@@ -160,3 +160,13 @@ def test_apply_rebuilds_then_verifies_and_audits():
     assert result["verification"]["verified"]
     assert statements.index("DELETE FROM security_findings") < next(i for i, statement in enumerate(statements) if "INSERT INTO audit_logs" in statement)
     assert connection.committed and connection.closed
+
+
+def test_optional_postgres_filters_are_type_cast(monkeypatch):
+    tools = IdentitySecurityTools(connection_factory=lambda: Connection())
+    queries = []
+    monkeypatch.setattr(tools, "_query", lambda statement, params=(): queries.append((statement, params)) or [])
+
+    tools.list_security_findings()
+
+    assert "%s::text IS NULL" in queries[0][0]
