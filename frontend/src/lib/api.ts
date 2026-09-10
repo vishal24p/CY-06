@@ -1,4 +1,4 @@
-import type { AnalysisReport } from "@/lib/types";
+import type { AnalysisReport, ChatMessage, ChatResponse } from "@/lib/types";
 
 export async function analyzeInventory(inventory: unknown): Promise<AnalysisReport> {
   const response = await fetch("/api/analyze", {
@@ -12,6 +12,20 @@ export async function analyzeInventory(inventory: unknown): Promise<AnalysisRepo
     throw new Error(payload.detail ?? "Analysis failed.");
   }
   return normalizeReport(payload);
+}
+
+export async function sendChat(messages: ChatMessage[]): Promise<ChatResponse> {
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages }),
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.detail ?? "Chat failed.");
+  }
+  return normalizeChatResponse(payload);
 }
 
 function normalizeReport(payload: unknown): AnalysisReport {
@@ -40,6 +54,17 @@ function normalizeReport(payload: unknown): AnalysisReport {
       sessions: number(coverage.sessions),
     },
     identity_metadata: Array.isArray(value.identity_metadata) ? value.identity_metadata as AnalysisReport["identity_metadata"] : [],
+  };
+}
+
+function normalizeChatResponse(payload: unknown): ChatResponse {
+  const value = isRecord(payload) ? payload : {};
+  const toolCalls = value.tool_calls;
+  return {
+    message: typeof value.message === "string" ? value.message : "",
+    tool_calls: Array.isArray(toolCalls) && toolCalls.every((tool) => isRecord(tool) && typeof tool.name === "string")
+      ? toolCalls.map((tool) => ({ name: (tool as { name: string }).name, status: "completed" }))
+      : [],
   };
 }
 

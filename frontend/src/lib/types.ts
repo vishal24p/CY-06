@@ -64,3 +64,18 @@ export type Inventory = Record<string, unknown> & {
   Organizations?: unknown;
   Sessions?: unknown[];
 };
+
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type ChatToolCall = {
+  name: string;
+  status: "completed";
+};
+
+export type ChatResponse = {
+  message: string;
+  tool_calls: ChatToolCall[];
+};
