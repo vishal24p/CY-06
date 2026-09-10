@@ -5,9 +5,18 @@ from datetime import datetime
 from typing import Any
 
 import boto3
-from botocore.exceptions import ClientError, ProfileNotFound
+from botocore.exceptions import (
+    ClientError,
+    NoCredentialsError,
+    ProfileNotFound,
+    SSOTokenLoadError,
+    TokenRetrievalError,
+)
 
 EXPECTED_SOURCE_ACCOUNT = "820919093456"
+EXPECTED_ROLE_ARN = (
+    "arn:aws:iam::820919093456:role/PrivilegePathFinderReadOnlyRole"
+)
 
 
 @dataclass(frozen=True, repr=False)
@@ -36,11 +45,13 @@ def connect(
     region_name: str | None = None,
 ) -> Connection:
     """Verify an AWS profile and return a temporary assumed-role connection."""
+    if role_arn != EXPECTED_ROLE_ARN:
+        raise ConnectionError("role ARN is not authorized")
+
     try:
-        source_session = boto3.Session(
-            profile_name=profile_name, region_name=region_name
-        )
-        sts = source_session.client("sts")
+        source_session = boto3.Session(profile_name=profile_name)
+        client_options = {"region_name": region_name} if region_name else {}
+        sts = source_session.client("sts", **client_options)
         identity = sts.get_caller_identity()
         account_id = identity["Account"]
         if account_id != EXPECTED_SOURCE_ACCOUNT:
@@ -48,6 +59,8 @@ def connect(
         assumed = sts.assume_role(RoleArn=role_arn, RoleSessionName="cy06-local")
     except ProfileNotFound as error:
         raise ConnectionError("AWS profile not found") from error
+    except (SSOTokenLoadError, TokenRetrievalError, NoCredentialsError) as error:
+        raise ConnectionError("AWS SSO credentials unavailable") from error
     except ClientError as error:
         code = error.response.get("Error", {}).get("Code", "")
         if code in {"UnauthorizedException", "AccessDenied", "AccessDeniedException"}:
