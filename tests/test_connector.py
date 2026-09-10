@@ -17,11 +17,11 @@ def test_connector_behavior_is_offline_and_boundary_safe():
         "Account": "123456789012",
         "Arn": "arn:aws:iam::123456789012:user/test",
     }
-    with (
-        patch("cy06.connector.boto3.Session", return_value=Mock(client=Mock(return_value=sts))) as session,
-        pytest.raises(ConnectionError, match="source account"),
-    ):
-        connect("profile", EXPECTED_ROLE_ARN)
+    with patch(
+        "cy06.connector.boto3.Session", return_value=Mock(client=Mock(return_value=sts))
+    ) as session:
+        with pytest.raises(ConnectionError, match="source account"):
+            connect("profile", EXPECTED_ROLE_ARN)
         session.assert_called_once_with(profile_name="profile")
         sts.assume_role.assert_not_called()
 

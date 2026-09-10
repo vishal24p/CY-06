@@ -49,3 +49,17 @@ Implemented Task 1 minimal AWS connector package.
 - `uv run --with boto3 --with pytest --with ruff --with pyright --no-project ruff check src tests` — passed.
 - `uv run --with boto3 --with pytest --with ruff --with pyright --no-project pyright src` — 0 errors, 0 warnings, 0 informations.
 - No AWS calls or credentials used.
+
+## Final Review Fix Round
+
+- Updated `README.md` to install the package from the repository root with `python -m pip install -e .` before SSO login and CLI execution.
+- Reworked the account-rejection test so `session.assert_called_once_with(...)` and `sts.assume_role.assert_not_called()` execute after `connect()` raises, rather than inside the exception context.
+
+### Checks
+
+- `uv run --with boto3 --with pytest --with ruff --with pyright --no-project python -m compileall -q src tests` with `PYTHONPATH=src`: passed.
+- `uv run --with boto3 --with pytest --with ruff --with pyright --no-project pytest -q` with `PYTHONPATH=src`: 8 passed.
+- `uv run --with boto3 --with pytest --with ruff --with pyright --no-project ruff check src tests`: passed.
+- `uv run --with boto3 --with pytest --with ruff --with pyright --no-project pyright src`: 0 errors, 0 warnings, 0 informations.
+- `git diff --check`: passed.
+- `git status --short` and secret scan: no credential files or secret values found; no AWS calls or credentials used.

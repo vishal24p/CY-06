@@ -5,6 +5,7 @@
 Configure a named AWS CLI SSO profile locally. Do not add access keys to the repository.
 
 ```text
+python -m pip install -e .
 aws sso login --profile <profile>
 python -m cy06 --profile <profile>
 ```
