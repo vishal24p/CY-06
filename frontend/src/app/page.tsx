@@ -43,44 +43,59 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#070b14] px-5 py-10 text-slate-100 sm:px-8 lg:px-12">
-      <div className="mx-auto max-w-6xl">
-        <header className="flex flex-col gap-5 border-b border-slate-800 pb-8 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="font-mono text-xs uppercase tracking-[0.3em] text-cyan-300">CY-06 / Module 2.2</p>
-            <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white sm:text-5xl">Privilege Path Finder</h1>
-            <p className="mt-3 max-w-2xl text-slate-400">Upload an AWS IAM authorization snapshot to reveal the exact relationships that create privilege risk.</p>
+    <main className="min-h-screen bg-[#071018] px-4 py-6 text-slate-100 sm:px-8 sm:py-8 lg:px-12">
+      <div className="mx-auto max-w-[1400px]">
+        <header className="border-b border-slate-800/90 pb-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3 font-mono uppercase tracking-[0.22em] text-cyan-300">
+              <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(103,232,249,0.7)]" aria-hidden="true" />
+              <span>CY—06</span><span className="text-slate-700">/</span><span className="text-slate-500">IAM analysis</span>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 font-medium text-emerald-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" aria-hidden="true" /> Read-only mode
+            </div>
           </div>
-          <div className="rounded-xl border border-cyan-900/60 bg-cyan-950/30 px-4 py-3 text-sm text-cyan-200">Read-only analysis</div>
+          <div className="mt-10 max-w-3xl">
+            <h1 className="text-4xl font-semibold tracking-[-0.035em] text-white sm:text-6xl">Privilege Path Finder</h1>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-400 sm:text-lg">Trace how IAM permissions connect people, groups, roles, and policies—and surface the paths that create privilege risk.</p>
+          </div>
         </header>
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-            <p className="text-sm font-semibold text-white">1. Load IAM data</p>
-            <p className="mt-2 text-sm leading-6 text-slate-400">Use JSON from AWS GetAccountAuthorizationDetails. Files stay local to this workflow.</p>
-            <label className="mt-6 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-600 bg-slate-950/60 px-5 py-10 text-center transition hover:border-cyan-400">
+        <section className="mt-8 grid gap-5 lg:grid-cols-[340px_minmax(0,1fr)] lg:items-start">
+          <div className="rounded-2xl border border-slate-800 bg-[#0b1721] p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div><p className="text-sm font-semibold text-white">Load IAM snapshot</p><p className="mt-1 text-xs leading-5 text-slate-500">Local JSON only · maximum 5 MB</p></div>
+              <span className="rounded-md border border-slate-700 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-slate-500">JSON</span>
+            </div>
+            <p className="mt-6 text-sm leading-6 text-slate-400">Use output from AWS <span className="font-mono text-slate-300">GetAccountAuthorizationDetails</span>. Credentials never enter this workflow.</p>
+            <label htmlFor="iam-file" className="mt-6 flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-600 bg-[#071018] px-5 py-8 text-center transition hover:border-cyan-300 hover:bg-cyan-300/[0.03] focus-within:border-cyan-300 focus-within:ring-2 focus-within:ring-cyan-300/20">
+              <svg className="mb-3 h-7 w-7 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" strokeLinecap="round" strokeLinejoin="round" /></svg>
               <span className="text-sm font-medium text-cyan-200">Choose JSON file</span>
-              <span className="mt-2 text-xs text-slate-500">Maximum 5 MB</span>
-              <input className="sr-only" type="file" accept="application/json,.json" onChange={handleFile} />
+              <span className="mt-2 text-xs text-slate-500">or use the sample in <span className="font-mono text-slate-400">data/</span></span>
+              <input id="iam-file" className="sr-only" type="file" accept="application/json,.json" onChange={handleFile} />
             </label>
-            {filename && <p className="mt-3 truncate font-mono text-xs text-slate-400">{filename}</p>}
-            {loading && <p className="mt-5 text-sm text-cyan-300">Analyzing permissions…</p>}
-            {error && <p className="mt-5 rounded-lg border border-red-900/70 bg-red-950/40 p-3 text-sm text-red-300">{error}</p>}
+            {filename && <p className="mt-4 truncate rounded-lg bg-slate-950/60 px-3 py-2 font-mono text-xs text-slate-300" title={filename}>{filename}</p>}
+            <div className="mt-5 min-h-5" aria-live="polite">
+              {loading && <p className="text-sm text-cyan-300">Analyzing permission paths…</p>}
+              {error && <p className="rounded-lg border border-red-900/70 bg-red-950/40 p-3 text-sm leading-5 text-red-300">{error}</p>}
+            </div>
           </div>
 
-          <div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Metric label="Findings" value={report?.summary.findings ?? "—"} />
-              <Metric label="Critical" value={report?.summary.critical ?? "—"} tone="critical" />
-              <Metric label="High" value={report?.summary.high ?? "—"} tone="high" />
+          <div className="min-w-0">
+            <div className="overflow-hidden rounded-2xl border border-slate-800 bg-[#0b1721]">
+              <div className="grid grid-cols-3 divide-x divide-slate-800">
+                <Metric label="Findings" value={report?.summary.findings ?? "—"} />
+                <Metric label="Critical" value={report?.summary.critical ?? "—"} tone="critical" />
+                <Metric label="High" value={report?.summary.high ?? "—"} tone="high" />
+              </div>
             </div>
-            <div className="mt-6">
-              {report ? <FindingsList findings={report.findings} /> : <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-8 text-center text-sm text-slate-500">Your verified findings will appear here.</div>}
+            <div className="mt-5">
+              {report ? <FindingsList findings={report.findings} /> : <div className="rounded-2xl border border-dashed border-slate-800 bg-[#0b1721]/60 p-10 text-center"><p className="text-sm font-medium text-slate-300">No analysis loaded</p><p className="mt-2 text-sm text-slate-500">Upload an IAM snapshot to see findings and evidence paths.</p></div>}
             </div>
-            {report?.warnings.length ? <p className="mt-4 text-xs text-orange-300">{report.warnings.length} item(s) require review because the MVP cannot fully evaluate them.</p> : null}
+            {report?.warnings.length ? <p className="mt-4 rounded-lg border border-orange-400/20 bg-orange-400/5 px-3 py-2 text-xs leading-5 text-orange-300">{report.warnings.length} item(s) require review because the current rules cannot fully evaluate them.</p> : null}
           </div>
         </section>
-        {inventory && <div className="mt-8 space-y-8"><IamGraph inventory={inventory} findings={report?.findings ?? []} /><InventoryTables inventory={inventory} /></div>}
+        {inventory && <div className="mt-8 space-y-6"><IamGraph inventory={inventory} findings={report?.findings ?? []} /><InventoryTables inventory={inventory} /></div>}
       </div>
     </main>
   );
@@ -88,5 +103,5 @@ export default function Home() {
 
 function Metric({ label, value, tone }: { label: string; value: number | string; tone?: "critical" | "high" }) {
   const color = tone === "critical" ? "text-red-300" : tone === "high" ? "text-orange-300" : "text-white";
-  return <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4"><p className="text-xs uppercase tracking-wider text-slate-500">{label}</p><p className={`mt-2 text-3xl font-semibold ${color}`}>{value}</p></div>;
+  return <div className="px-4 py-4 sm:px-5"><p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{label}</p><p className={`mt-2 text-2xl font-semibold tracking-tight ${color}`}>{value}</p></div>;
 }
