@@ -1,0 +1,138 @@
+"""Read-only local tool loop for OpenAI-compatible chat providers."""
+
+from __future__ import annotations
+
+import json
+import os
+from typing import Any, Callable
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
+from .identity_security import IdentitySecurityError, IdentitySecurityTools
+
+READ_ONLY_TOOL_NAMES = frozenset({
+    "list_postgres_tables", "list_identity_entities", "get_identity_entity",
+    "list_privilege_paths", "get_privilege_path", "list_security_findings",
+    "list_remediation_plans", "list_audit_logs", "analyze_policy_impact",
+    "verify_remediation",
+})
+MAX_TOOL_ROUNDS = 3
+
+
+class ChatError(ValueError):
+    """Safe error returned when chat cannot complete."""
+
+
+_FUNCTIONS = {
+    "list_postgres_tables": {},
+    "list_identity_entities": {"search": {"type": "string"}, "entity_type": {"type": "string"}, "sort_by": {"type": "string", "enum": ["name", "type"]}, "limit": {"type": "integer"}, "offset": {"type": "integer"}},
+    "get_identity_entity": {"entity_id": {"type": "string"}},
+    "list_privilege_paths": {"risk": {"type": "string"}, "limit": {"type": "integer"}, "offset": {"type": "integer"}},
+    "get_privilege_path": {"path_id": {"type": "string"}},
+    "list_security_findings": {"status": {"type": "string"}, "risk": {"type": "string"}},
+    "list_remediation_plans": {"status": {"type": "string"}},
+    "list_audit_logs": {"limit": {"type": "integer"}},
+    "analyze_policy_impact": {"policy_id": {"type": "string"}},
+    "verify_remediation": {"plan_id": {"type": "string"}},
+}
+_REQUIRED = {"get_identity_entity": ["entity_id"], "get_privilege_path": ["path_id"], "analyze_policy_impact": ["policy_id"], "verify_remediation": ["plan_id"]}
+_TOOLS = [
+    {"type": "function", "function": {"name": name, "description": f"Read local identity-security data with {name}.", "parameters": {"type": "object", "properties": properties, "required": _REQUIRED.get(name, []), "additionalProperties": False}}}
+    for name, properties in _FUNCTIONS.items()
+]
+
+
+def _dispatch(name: str, arguments: dict[str, Any], tools: IdentitySecurityTools) -> Any:
+    if name not in READ_ONLY_TOOL_NAMES:
+        raise ChatError("Requested tool is not available to chat")
+    try:
+        return getattr(tools, name)(**arguments)
+    except (AttributeError, IdentitySecurityError, TypeError) as error:
+        raise ChatError(str(error)) from error
+
+
+def run_chat(
+    messages: list[dict[str, str]],
+    *,
+    open_url: Callable[..., Any] = urlopen,
+    tools_factory: Callable[[], IdentitySecurityTools] = IdentitySecurityTools,
+) -> dict[str, Any]:
+    """Send chat messages to a configured provider and execute read-only calls."""
+    base_url = _required_environment("CY06_CHAT_BASE_URL")
+    model = _required_environment("CY06_CHAT_MODEL")
+    if not isinstance(messages, list) or not all(
+        isinstance(message, dict) and isinstance(message.get("role"), str) and isinstance(message.get("content"), str)
+        for message in messages
+    ):
+        raise ChatError("messages must contain role and content strings")
+
+    endpoint = f"{base_url.rstrip('/')}/chat/completions"
+    request_messages: list[dict[str, Any]] = list(messages)
+    completed: list[dict[str, str]] = []
+    tools: IdentitySecurityTools | None = None
+    for _ in range(MAX_TOOL_ROUNDS):
+        message = _provider_message(endpoint, model, request_messages, open_url)
+        tool_calls = _tool_calls(message)
+        if not tool_calls:
+            content = message.get("content")
+            if not isinstance(content, str):
+                raise ChatError("Provider response was invalid")
+            return {"message": content, "tool_calls": completed}
+        request_messages.append({"role": "assistant", **message})
+        tools = tools or tools_factory()
+        for call_id, name, arguments in tool_calls:
+            result = _dispatch(name, arguments, tools)
+            request_messages.append({"role": "tool", "tool_call_id": call_id, "content": json.dumps(result, default=str)})
+            completed.append({"name": name, "status": "completed"})
+    raise ChatError("Chat tool-call limit reached")
+
+
+def _required_environment(name: str) -> str:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise ChatError(f"{name} is required")
+    return value
+
+
+def _provider_message(endpoint: str, model: str, messages: list[dict[str, Any]], open_url: Callable[..., Any]) -> dict[str, Any]:
+    headers = {"Content-Type": "application/json"}
+    if api_key := os.environ.get("CY06_CHAT_API_KEY"):
+        headers["Authorization"] = f"Bearer {api_key}"
+    try:
+        request = Request(endpoint, data=json.dumps({"model": model, "messages": messages, "tools": _TOOLS}).encode(), headers=headers, method="POST")
+        with open_url(request, timeout=30) as response:
+            payload = json.loads(response.read())
+    except (HTTPError, URLError, OSError, json.JSONDecodeError, UnicodeDecodeError, TypeError, ValueError) as error:
+        raise ChatError("Provider request failed") from error
+    try:
+        message = payload["choices"][0]["message"]
+    except (KeyError, IndexError, TypeError) as error:
+        raise ChatError("Provider response was invalid") from error
+    if not isinstance(message, dict):
+        raise ChatError("Provider response was invalid")
+    return message
+
+
+def _tool_calls(message: dict[str, Any]) -> list[tuple[str, str, dict[str, Any]]]:
+    calls = message.get("tool_calls", [])
+    if calls is None:
+        return []
+    if not isinstance(calls, list):
+        raise ChatError("Provider response was invalid")
+    parsed = []
+    for call in calls:
+        try:
+            call_id, function = call["id"], call["function"]
+            name, encoded = function["name"], function["arguments"]
+        except (KeyError, TypeError) as error:
+            raise ChatError("Provider response was invalid") from error
+        if not isinstance(call_id, str) or not isinstance(name, str) or not isinstance(encoded, str):
+            raise ChatError("Provider response was invalid")
+        try:
+            arguments = json.loads(encoded)
+        except json.JSONDecodeError as error:
+            raise ChatError("Tool arguments must be valid JSON") from error
+        if not isinstance(arguments, dict):
+            raise ChatError("Tool arguments must be an object")
+        parsed.append((call_id, name, arguments))
+    return parsed
