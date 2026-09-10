@@ -3,7 +3,9 @@
 import { ChangeEvent, useState } from "react";
 
 import { ChatPanel } from "@/components/ChatPanel";
+import { FindingsList } from "@/components/FindingsList";
 import { IamGraph } from "@/components/IamGraph";
+import { InventoryTables } from "@/components/InventoryTables";
 import { analyzeInventory } from "@/lib/api";
 import type { AnalysisReport, Inventory } from "@/lib/types";
 
@@ -94,7 +96,7 @@ export default function Home() {
         {inventory && <section className="mt-10" aria-labelledby="workspace-heading">
           <div className="mb-5 border-b border-[#cad6d2] pb-4">
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Analysis workspace</p>
-            <h2 id="workspace-heading" className="mt-1 text-2xl font-semibold tracking-tight text-[#17252f]">Graph and assistant</h2>
+            <h2 id="workspace-heading" className="mt-1 text-2xl font-semibold tracking-tight text-[#17252f]">Privilege path review</h2>
           </div>
           <div className="grid min-h-0 gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-stretch">
             <div className="h-[70vh] min-h-[520px] max-h-[800px] min-w-0 overflow-auto rounded-xl">
@@ -104,6 +106,20 @@ export default function Home() {
               <ChatPanel />
             </div>
           </div>
+          <section className="mt-10" aria-labelledby="findings-heading">
+            <div className="mb-5 border-b border-[#cad6d2] pb-4">
+              <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Evidence paths</p>
+              <h2 id="findings-heading" className="mt-1 text-2xl font-semibold tracking-tight text-[#17252f]">Detected privilege paths</h2>
+            </div>
+            <FindingsList findings={report?.findings ?? []} />
+          </section>
+          <section className="mt-10" aria-labelledby="inventory-heading">
+            <div className="mb-5 border-b border-[#cad6d2] pb-4">
+              <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Source evidence</p>
+              <h2 id="inventory-heading" className="mt-1 text-2xl font-semibold tracking-tight text-[#17252f]">IAM inventory</h2>
+            </div>
+            <InventoryTables inventory={inventory} identityMetadata={report?.identity_metadata ?? []} />
+          </section>
         </section>}
       </div>
     </main>

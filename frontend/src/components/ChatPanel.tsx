@@ -55,6 +55,7 @@ export function ChatPanel() {
       <div className="border-b border-[#e3ebe7] pb-4">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Read-only assistant</p>
         <h2 id="chat-heading" className="mt-1 text-xl font-semibold text-[#17252f]">Ask about this analysis</h2>
+        <p className="mt-2 text-xs leading-5 text-[#71817e]">Requires local chat configuration and imported identity-security data.</p>
       </div>
 
       <ol className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1" aria-label="Conversation">
