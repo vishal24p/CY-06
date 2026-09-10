@@ -29,7 +29,7 @@ npm run dev
 
 Open `http://localhost:3000`, upload `data\sample-iam-inventory.json`, and review the privilege graph, source tables, and findings. The UI sends the file to the local API; it does not contact AWS.
 
-The sample currently demonstrates one critical finding: `analyst` can assume the privileged `DeploymentRole`.
+The sample contains 8 users, 4 groups, 6 roles, and 8 policies. It intentionally mixes safe access with group inheritance, unrestricted access, user lifecycle permissions, and privileged role-assumption paths so the graph has meaningful relationships to inspect.
 
 ## Local AWS SSO setup and run
 

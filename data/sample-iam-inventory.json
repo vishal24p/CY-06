@@ -5,59 +5,182 @@
       "UserName": "analyst",
       "UserId": "AIDAEXAMPLEANALYST",
       "Arn": "arn:aws:iam::000000000000:user/analyst",
-      "GroupList": [],
+      "GroupList": ["AuditReaders"],
       "AttachedManagedPolicies": [],
-      "UserPolicyList": [
-        {
-          "PolicyName": "AssumeDeploymentRole",
-          "PolicyDocument": {
-            "Version": "2012-10-17",
-            "Statement": [
-              {
-                "Effect": "Allow",
-                "Action": "sts:AssumeRole",
-                "Resource": "arn:aws:iam::000000000000:role/DeploymentRole"
-              }
-            ]
-          }
-        }
-      ]
+      "UserPolicyList": [{"PolicyName": "AssumeDeploymentRole", "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "sts:AssumeRole", "Resource": "arn:aws:iam::000000000000:role/DeploymentRole"}]}}]
+    },
+    {
+      "Path": "/engineering/",
+      "UserName": "alice",
+      "UserId": "AIDAEXAMPLEALICE",
+      "Arn": "arn:aws:iam::000000000000:user/alice",
+      "GroupList": ["PlatformTeam"],
+      "AttachedManagedPolicies": [],
+      "UserPolicyList": []
+    },
+    {
+      "Path": "/engineering/",
+      "UserName": "bob",
+      "UserId": "AIDAEXAMPLEBOB",
+      "Arn": "arn:aws:iam::000000000000:user/bob",
+      "GroupList": ["PlatformTeam"],
+      "AttachedManagedPolicies": [],
+      "UserPolicyList": []
+    },
+    {
+      "Path": "/engineering/",
+      "UserName": "carol",
+      "UserId": "AIDAEXAMPLECAROL",
+      "Arn": "arn:aws:iam::000000000000:user/carol",
+      "GroupList": ["Developers"],
+      "AttachedManagedPolicies": [],
+      "UserPolicyList": [{"PolicyName": "AssumeProductionRole", "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "sts:AssumeRole", "Resource": "arn:aws:iam::000000000000:role/ProductionDeploymentRole"}]}}]
+    },
+    {
+      "Path": "/engineering/",
+      "UserName": "diego",
+      "UserId": "AIDAEXAMPLEDIEGO",
+      "Arn": "arn:aws:iam::000000000000:user/diego",
+      "GroupList": ["Developers"],
+      "AttachedManagedPolicies": [],
+      "UserPolicyList": []
+    },
+    {
+      "Path": "/engineering/",
+      "UserName": "emma",
+      "UserId": "AIDAEXAMPLEEMMA",
+      "Arn": "arn:aws:iam::000000000000:user/emma",
+      "GroupList": ["Developers"],
+      "AttachedManagedPolicies": [],
+      "UserPolicyList": []
+    },
+    {
+      "Path": "/operations/",
+      "UserName": "farah",
+      "UserId": "AIDAEXAMPLEFARAH",
+      "Arn": "arn:aws:iam::000000000000:user/farah",
+      "GroupList": ["SupportTeam"],
+      "AttachedManagedPolicies": [],
+      "UserPolicyList": []
+    },
+    {
+      "Path": "/operations/",
+      "UserName": "gina",
+      "UserId": "AIDAEXAMPLEGINA",
+      "Arn": "arn:aws:iam::000000000000:user/gina",
+      "GroupList": ["SupportTeam"],
+      "AttachedManagedPolicies": [],
+      "UserPolicyList": [{"PolicyName": "UserLifecycle", "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": ["iam:CreateUser", "iam:DeleteUser"], "Resource": "*"}]}}]
     }
   ],
-  "GroupDetailList": [],
+  "GroupDetailList": [
+    {
+      "Path": "/",
+      "GroupName": "AuditReaders",
+      "GroupId": "AGPAEXAMPLEAUDIT",
+      "Arn": "arn:aws:iam::000000000000:group/AuditReaders",
+      "Users": [{"UserName": "analyst", "Arn": "arn:aws:iam::000000000000:user/analyst"}],
+      "AttachedManagedPolicies": [{"PolicyName": "ReadOnlyAccess", "PolicyArn": "arn:aws:iam::000000000000:policy/ReadOnlyAccess"}],
+      "GroupPolicyList": []
+    },
+    {
+      "Path": "/",
+      "GroupName": "PlatformTeam",
+      "GroupId": "AGPAEXAMPLEPLATFORM",
+      "Arn": "arn:aws:iam::000000000000:group/PlatformTeam",
+      "Users": [{"UserName": "alice"}, {"UserName": "bob"}],
+      "AttachedManagedPolicies": [{"PolicyName": "PowerUserAccess", "PolicyArn": "arn:aws:iam::000000000000:policy/PowerUserAccess"}],
+      "GroupPolicyList": [{"PolicyName": "IAMUserLifecycle", "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": ["iam:CreateUser", "iam:DeleteUser"], "Resource": "*"}]}}]
+    },
+    {
+      "Path": "/",
+      "GroupName": "Developers",
+      "GroupId": "AGPAEXAMPLEDEVELOPERS",
+      "Arn": "arn:aws:iam::000000000000:group/Developers",
+      "Users": [{"UserName": "carol"}, {"UserName": "diego"}, {"UserName": "emma"}],
+      "AttachedManagedPolicies": [{"PolicyName": "DeveloperBaseAccess", "PolicyArn": "arn:aws:iam::000000000000:policy/DeveloperBaseAccess"}],
+      "GroupPolicyList": [{"PolicyName": "AssumeDeploymentRole", "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "sts:AssumeRole", "Resource": "arn:aws:iam::000000000000:role/DeploymentRole"}]}}]
+    },
+    {
+      "Path": "/",
+      "GroupName": "SupportTeam",
+      "GroupId": "AGPAEXAMPLESUPPORT",
+      "Arn": "arn:aws:iam::000000000000:group/SupportTeam",
+      "Users": [{"UserName": "farah"}, {"UserName": "gina"}],
+      "AttachedManagedPolicies": [],
+      "GroupPolicyList": [{"PolicyName": "SupportRoleManagement", "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "iam:AttachRolePolicy", "Resource": "*"}]}}]
+    }
+  ],
   "RoleDetailList": [
     {
       "Path": "/",
       "RoleName": "DeploymentRole",
       "RoleId": "AROAXAMPLEDEPLOYMENT",
       "Arn": "arn:aws:iam::000000000000:role/DeploymentRole",
-      "AssumeRolePolicyDocument": {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-            "Effect": "Allow",
-            "Principal": {
-              "AWS": "arn:aws:iam::000000000000:user/analyst"
-            },
-            "Action": "sts:AssumeRole"
-          }
-        ]
-      },
-      "AttachedManagedPolicies": [
-        {
-          "PolicyName": "AdministratorAccess",
-          "PolicyArn": "arn:aws:iam::aws:policy/AdministratorAccess"
-        }
-      ],
+      "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"AWS": "arn:aws:iam::000000000000:root"}, "Action": "sts:AssumeRole"}]},
+      "AttachedManagedPolicies": [{"PolicyName": "AdministratorAccess", "PolicyArn": "arn:aws:iam::aws:policy/AdministratorAccess"}],
+      "RolePolicyList": [],
+      "InstanceProfileList": []
+    },
+    {
+      "Path": "/",
+      "RoleName": "ProductionDeploymentRole",
+      "RoleId": "AROAXAMPLEPRODUCTION",
+      "Arn": "arn:aws:iam::000000000000:role/ProductionDeploymentRole",
+      "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"AWS": "arn:aws:iam::000000000000:user/carol"}, "Action": "sts:AssumeRole"}]},
+      "AttachedManagedPolicies": [{"PolicyName": "AdministratorAccess", "PolicyArn": "arn:aws:iam::aws:policy/AdministratorAccess"}],
+      "RolePolicyList": [],
+      "InstanceProfileList": []
+    },
+    {
+      "Path": "/",
+      "RoleName": "ReadOnlyAuditRole",
+      "RoleId": "AROAXAMPLEREADONLY",
+      "Arn": "arn:aws:iam::000000000000:role/ReadOnlyAuditRole",
+      "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"AWS": "arn:aws:iam::000000000000:root"}, "Action": "sts:AssumeRole"}]},
+      "AttachedManagedPolicies": [{"PolicyName": "ReadOnlyAccess", "PolicyArn": "arn:aws:iam::000000000000:policy/ReadOnlyAccess"}],
+      "RolePolicyList": [],
+      "InstanceProfileList": []
+    },
+    {
+      "Path": "/",
+      "RoleName": "DataPipelineRole",
+      "RoleId": "AROAXAMPLEPIPELINE",
+      "Arn": "arn:aws:iam::000000000000:role/DataPipelineRole",
+      "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"AWS": "arn:aws:iam::000000000000:root"}, "Action": "sts:AssumeRole"}]},
+      "AttachedManagedPolicies": [{"PolicyName": "DataPipelineAccess", "PolicyArn": "arn:aws:iam::000000000000:policy/DataPipelineAccess"}],
+      "RolePolicyList": [],
+      "InstanceProfileList": [{"InstanceProfileName": "DataPipelineProfile"}]
+    },
+    {
+      "Path": "/",
+      "RoleName": "SupportAutomationRole",
+      "RoleId": "AROAXAMPLESUPPORT",
+      "Arn": "arn:aws:iam::000000000000:role/SupportAutomationRole",
+      "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "ssm.amazonaws.com"}, "Action": "sts:AssumeRole"}]},
+      "AttachedManagedPolicies": [{"PolicyName": "SupportAutomation", "PolicyArn": "arn:aws:iam::000000000000:policy/SupportAutomation"}],
+      "RolePolicyList": [],
+      "InstanceProfileList": []
+    },
+    {
+      "Path": "/",
+      "RoleName": "BreakGlassRole",
+      "RoleId": "AROAXAMPLEBREAKGLASS",
+      "Arn": "arn:aws:iam::000000000000:role/BreakGlassRole",
+      "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"AWS": "arn:aws:iam::000000000000:root"}, "Action": "sts:AssumeRole", "Condition": {"StringEquals": {"aws:PrincipalTag/approved": "true"}}}]},
+      "AttachedManagedPolicies": [{"PolicyName": "AdministratorAccess", "PolicyArn": "arn:aws:iam::aws:policy/AdministratorAccess"}],
       "RolePolicyList": [],
       "InstanceProfileList": []
     }
   ],
   "Policies": [
-    {
-      "PolicyName": "AdministratorAccess",
-      "Arn": "arn:aws:iam::aws:policy/AdministratorAccess",
-      "AttachmentCount": 1
-    }
+    {"PolicyName": "AdministratorAccess", "Arn": "arn:aws:iam::aws:policy/AdministratorAccess", "AttachmentCount": 3},
+    {"PolicyName": "PowerUserAccess", "Arn": "arn:aws:iam::000000000000:policy/PowerUserAccess", "AttachmentCount": 1, "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]}},
+    {"PolicyName": "ReadOnlyAccess", "Arn": "arn:aws:iam::000000000000:policy/ReadOnlyAccess", "AttachmentCount": 2, "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": ["iam:Get*", "cloudtrail:Describe*"], "Resource": "*"}]}},
+    {"PolicyName": "DeveloperBaseAccess", "Arn": "arn:aws:iam::000000000000:policy/DeveloperBaseAccess", "AttachmentCount": 1, "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": ["ec2:Describe*", "s3:GetObject"], "Resource": "arn:aws:s3:::company-artifacts/*"}]}},
+    {"PolicyName": "DataPipelineAccess", "Arn": "arn:aws:iam::000000000000:policy/DataPipelineAccess", "AttachmentCount": 1, "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject"], "Resource": "arn:aws:s3:::company-data/*"}]}},
+    {"PolicyName": "SupportAutomation", "Arn": "arn:aws:iam::000000000000:policy/SupportAutomation", "AttachmentCount": 1, "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "ssm:StartSession", "Resource": "arn:aws:ec2:ap-south-1:000000000000:instance/*"}]}},
+    {"PolicyName": "AssumeProductionRole", "Arn": "arn:aws:iam::000000000000:policy/AssumeProductionRole", "AttachmentCount": 1},
+    {"PolicyName": "UserLifecycle", "Arn": "arn:aws:iam::000000000000:policy/UserLifecycle", "AttachmentCount": 1}
   ]
 }

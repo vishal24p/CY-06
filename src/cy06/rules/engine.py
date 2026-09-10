@@ -82,7 +82,7 @@ def analyze_inventory(
                     if _is_denied(statements, action, resource):
                         continue
                     confidence = "review_required" if statement["conditions"] else "confirmed"
-                    if _is_wildcard(action) and _is_wildcard(resource):
+                    if _is_unrestricted(action) and _is_unrestricted(resource):
                         _add_finding(
                             findings,
                             {
@@ -224,8 +224,8 @@ def _is_privileged_role(role: dict[str, Any], warnings: list[dict[str, Any]]) ->
     )
     return any(
         statement["effect"] == "Allow"
-        and any(_is_wildcard(action) for action in statement["actions"])
-        and any(_is_wildcard(resource) for resource in statement["resources"])
+        and any(_is_unrestricted(action) for action in statement["actions"])
+        and any(_is_unrestricted(resource) for resource in statement["resources"])
         for statement in statements
     )
 
@@ -371,8 +371,8 @@ def _matches_any(value: str, patterns: Iterable[str]) -> bool:
     return any(_matches(pattern, value) for pattern in patterns)
 
 
-def _is_wildcard(value: str) -> bool:
-    return value == "*" or "*" in value
+def _is_unrestricted(value: str) -> bool:
+    return value == "*"
 
 
 def _is_denied(statements: Iterable[dict[str, Any]], action: str, resource: str) -> bool:

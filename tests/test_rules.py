@@ -182,3 +182,35 @@ def test_condition_is_reported_for_review():
 
     assert report["findings"][0]["confidence"] == "review_required"
     assert any(item["feature"] == "Condition" for item in report["warnings"])
+
+
+def test_scoped_action_wildcard_is_not_unrestricted_access():
+    inventory = {
+        "UserDetailList": [
+            {
+                "UserName": "auditor",
+                "Arn": "arn:aws:iam::000000000000:user/auditor",
+                "GroupList": [],
+                "AttachedManagedPolicies": [],
+                "UserPolicyList": [
+                    {
+                        "PolicyName": "ReadOnly",
+                        "PolicyDocument": {
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": "iam:Get*",
+                                    "Resource": "*",
+                                }
+                            ]
+                        },
+                    }
+                ],
+            }
+        ],
+        "GroupDetailList": [],
+        "RoleDetailList": [],
+        "Policies": [],
+    }
+
+    assert analyze_inventory(inventory)["findings"] == []

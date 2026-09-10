@@ -68,6 +68,7 @@ export default function Home() {
               <span className="rounded-md border border-[#d4dfdc] px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-[#71817e]">JSON</span>
             </div>
             <p className="mt-6 text-sm leading-6 text-[#536562]">Use output from AWS <span className="font-mono text-[#2f4641]">GetAccountAuthorizationDetails</span>. Credentials never enter this workflow.</p>
+            <p className="mt-3 text-xs text-[#71817e]">Included sample is synthetic demo data for testing the graph.</p>
             <label htmlFor="iam-file" className="mt-6 flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-[#9db3ad] bg-[#f7faf7] px-5 py-8 text-center transition hover:border-[#147d78] hover:bg-[#eef7f4] focus-within:border-[#147d78] focus-within:ring-2 focus-within:ring-[#147d78]/20">
               <svg className="mb-3 h-7 w-7 text-[#147d78]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" strokeLinecap="round" strokeLinejoin="round" /></svg>
               <span className="text-sm font-medium text-[#147d78]">Choose JSON file</span>
@@ -89,6 +90,7 @@ export default function Home() {
                 <Metric label="High" value={report?.summary.high ?? "—"} tone="high" />
               </div>
             </div>
+            {inventory && <p className="font-mono text-xs text-[#60716e]">{count(inventory.UserDetailList)} users · {count(inventory.GroupDetailList)} groups · {count(inventory.RoleDetailList)} roles · {count(inventory.Policies)} policies</p>}
             <div className="flex flex-1 items-center rounded-xl border border-dashed border-[#c7d3cf] bg-white p-7 sm:p-10">
               {report ? <div><p className="text-sm font-semibold text-[#17252f]">Snapshot ready for review</p><p className="mt-2 max-w-xl text-sm leading-6 text-[#60716e]">Use the graph to trace relationships, then use the findings rail to inspect evidence and recommended fixes.</p>{report.warnings.length ? <p className="mt-4 text-xs leading-5 text-[#8a611b]">{report.warnings.length} item(s) require review because some IAM conditions are not fully evaluated.</p> : null}</div> : <div><p className="text-sm font-medium text-[#314842]">No analysis loaded</p><p className="mt-2 text-sm leading-6 text-[#71817e]">Upload an IAM snapshot to see relationships, findings, and evidence paths.</p></div>}
             </div>
@@ -116,4 +118,8 @@ export default function Home() {
 function Metric({ label, value, tone }: { label: string; value: number | string; tone?: "critical" | "high" }) {
   const color = tone === "critical" ? "text-[#b44339]" : tone === "high" ? "text-[#a36d13]" : "text-[#17252f]";
   return <div className="px-4 py-4 sm:px-5"><p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{label}</p><p className={`mt-2 text-2xl font-semibold tracking-tight ${color}`}>{value}</p></div>;
+}
+
+function count(value: unknown) {
+  return Array.isArray(value) ? value.length : 0;
 }
