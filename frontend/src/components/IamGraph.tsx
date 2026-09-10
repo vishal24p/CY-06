@@ -5,10 +5,10 @@ type Node = { id: string; label: string; kind: Kind; x: number; y: number; risky
 type Edge = { from: string; to: string; risky: boolean };
 
 const columns: Array<{ kind: Kind; label: string; x: number; color: string }> = [
-  { kind: "user", label: "Users", x: 110, color: "#67e8f9" },
-  { kind: "group", label: "Groups", x: 330, color: "#a5b4fc" },
-  { kind: "role", label: "Roles", x: 550, color: "#fbbf24" },
-  { kind: "policy", label: "Policies", x: 770, color: "#86efac" },
+  { kind: "user", label: "Users", x: 110, color: "#147d78" },
+  { kind: "group", label: "Groups", x: 330, color: "#5b65a8" },
+  { kind: "role", label: "Roles", x: 550, color: "#a36d13" },
+  { kind: "policy", label: "Policies", x: 770, color: "#2c7652" },
 ];
 
 export function IamGraph({ inventory, findings }: { inventory: Inventory; findings: Finding[] }) {
@@ -39,15 +39,15 @@ export function IamGraph({ inventory, findings }: { inventory: Inventory; findin
   const height = Math.max(300, ...nodes.map((node) => node.y + 48));
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5" aria-labelledby="graph-heading">
+    <section className="rounded-xl border border-[#d4dfdc] bg-white p-5" aria-labelledby="graph-heading">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-cyan-300">Relationship map</p>
-          <h2 id="graph-heading" className="mt-1 text-xl font-semibold text-white">IAM privilege graph</h2>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Relationship map</p>
+          <h2 id="graph-heading" className="mt-1 text-xl font-semibold text-[#17252f]">IAM privilege graph</h2>
         </div>
-        <p className="text-xs text-slate-500">Red edges/nodes are part of a detected risk path.</p>
+        <p className="text-xs text-[#71817e]">Red edges/nodes are part of a detected risk path.</p>
       </div>
-      <div className="mt-5 overflow-x-auto rounded-xl border border-slate-800 bg-[#070b14] p-3">
+      <div className="mt-5 overflow-x-auto rounded-lg border border-[#dce5e1] bg-[#f7faf7] p-3">
         <svg className="min-w-[860px]" width="900" height={height} viewBox={`0 0 900 ${height}`} role="img" aria-labelledby="graph-heading graph-description">
           <desc id="graph-description">Users, groups, roles, and policies connected by IAM relationships.</desc>
           {columns.map((column) => <text key={column.kind} x={column.x} y="25" textAnchor="middle" fill={column.color} fontSize="12" fontWeight="600">{column.label}</text>)}
@@ -55,13 +55,13 @@ export function IamGraph({ inventory, findings }: { inventory: Inventory; findin
             const from = byKey.get(edge.from);
             const to = byKey.get(edge.to);
             if (!from || !to) return null;
-            return <line key={`${edge.from}-${edge.to}-${index}`} x1={from.x + 78} y1={from.y + 22} x2={to.x - 78} y2={to.y + 22} stroke={edge.risky ? "#f87171" : "#334155"} strokeWidth={edge.risky ? 3 : 1.5} markerEnd="url(#arrow)" />;
+            return <line key={`${edge.from}-${edge.to}-${index}`} x1={from.x + 78} y1={from.y + 22} x2={to.x - 78} y2={to.y + 22} stroke={edge.risky ? "#c9564c" : "#aebfba"} strokeWidth={edge.risky ? 3 : 1.5} markerEnd="url(#arrow)" />;
           })}
-          <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b" /></marker></defs>
+          <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#849a94" /></marker></defs>
           {nodes.map((node) => <g key={node.id}>
-            <rect x={node.x - 78} y={node.y} width="156" height="44" rx="7" fill={node.risky ? "#451a1a" : "#0f172a"} stroke={node.risky ? "#f87171" : kindColor(node.kind)} strokeWidth={node.risky ? 2 : 1} />
-            <text x={node.x} y={node.y + 18} textAnchor="middle" fill="#f8fafc" fontSize="11" fontWeight="600">{truncate(node.label, 22)}</text>
-            <text x={node.x} y={node.y + 33} textAnchor="middle" fill={node.risky ? "#fca5a5" : "#64748b"} fontSize="9">{node.risky ? "risk path" : node.kind}</text>
+            <rect x={node.x - 78} y={node.y} width="156" height="44" rx="6" fill={node.risky ? "#fff3f1" : "#ffffff"} stroke={node.risky ? "#c9564c" : kindColor(node.kind)} strokeWidth={node.risky ? 2 : 1} />
+            <text x={node.x} y={node.y + 18} textAnchor="middle" fill="#17252f" fontSize="11" fontWeight="600">{truncate(node.label, 22)}</text>
+            <text x={node.x} y={node.y + 33} textAnchor="middle" fill={node.risky ? "#a33d34" : "#71817e"} fontSize="9">{node.risky ? "risk path" : node.kind}</text>
           </g>)}
         </svg>
       </div>
