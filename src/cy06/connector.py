@@ -50,8 +50,10 @@ def connect(
 
     try:
         source_session = boto3.Session(profile_name=profile_name)
-        client_options = {"region_name": region_name} if region_name else {}
-        sts = source_session.client("sts", **client_options)
+        if region_name:
+            sts = source_session.client("sts", region_name=region_name)
+        else:
+            sts = source_session.client("sts")
         identity = sts.get_caller_identity()
         account_id = identity["Account"]
         if account_id != EXPECTED_SOURCE_ACCOUNT:

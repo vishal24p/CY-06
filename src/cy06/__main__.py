@@ -26,7 +26,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ConnectionError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
-    except Exception:
+    except Exception:  # noqa: BLE001 - CLI must suppress unexpected tracebacks.
         print("error: unexpected connector failure", file=sys.stderr)
         return 1
 

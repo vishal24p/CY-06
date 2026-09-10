@@ -2,7 +2,7 @@ import contextlib
 import io
 import json
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -22,7 +22,7 @@ class CliTests(unittest.TestCase):
             account_id="820919093456",
             source_arn="arn:aws:iam::820919093456:user/test",
             assumed_role_arn="arn:aws:sts::820919093456:assumed-role/r/s",
-            expiration=datetime(2030, 1, 1, tzinfo=timezone.utc),
+            expiration=datetime(2030, 1, 1, tzinfo=UTC),
             session=SimpleNamespace(secret="do-not-print"),
         )
         stdout = io.StringIO()

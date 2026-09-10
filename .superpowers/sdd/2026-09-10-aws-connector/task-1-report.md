@@ -35,3 +35,17 @@ Implemented Task 1 minimal AWS connector package.
 - `uv run --with boto3 --no-project python -m compileall -q src tests` — passed.
 - `git diff --check` — passed.
 - No live AWS calls or credentials used.
+
+## Final Verification Fixes
+
+- Added a precise `BLE001` suppression for the CLI's intentional no-traceback fallback.
+- Replaced test timezone aliases with `datetime.UTC`, sorted imports, and combined nested test contexts.
+- Replaced typed-unsafe STS client dictionary expansion with an explicit region conditional.
+
+### Final Checks
+
+- `uv run --with boto3 --with pytest --with ruff --with pyright --no-project python -m compileall -q src tests` — passed.
+- `uv run --with boto3 --with pytest --with ruff --with pyright --no-project pytest -q` — 8 passed.
+- `uv run --with boto3 --with pytest --with ruff --with pyright --no-project ruff check src tests` — passed.
+- `uv run --with boto3 --with pytest --with ruff --with pyright --no-project pyright src` — 0 errors, 0 warnings, 0 informations.
+- No AWS calls or credentials used.
