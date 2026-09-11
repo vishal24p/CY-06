@@ -1,6 +1,6 @@
 # CY-06
 
-Read-only IAM privilege-path analysis. The Python rules engine is authoritative; the Next.js UI only presents its findings.
+Read-only AWS IAM privilege-path analysis. CY-06 shows how a low-privilege identity can reach administrator access through chained role assumptions, explains the evidence, and previews the smallest local fix. The Python rules engine is authoritative; the Next.js UI only presents its findings.
 
 ## Local JSON import
 
@@ -27,9 +27,13 @@ cd frontend
 npm run dev
 ```
 
-Open `http://localhost:3000`, upload `data\sample-iam-inventory.json`, and review the privilege graph, source tables, and findings. The UI sends the file to the local API; it does not contact AWS.
+Open `http://localhost:3000`, upload `data\sample-iam-inventory.json`, and review the highest-risk privilege path first. The UI sends the file to the local API; it does not contact AWS.
 
-For a judge-ready demo, start both processes, open the UI, and click `Load guided demo`. Then use the suggested assistant question, open the first finding, and click `Preview safe fix`. The preview clones the synthetic snapshot, removes only the selected action, and re-runs the same analyzer; it never changes AWS or the uploaded file. Live chat, PostgreSQL, and AWS SSO are optional extensions, not required for this demo path.
+For a judge-ready demo, start both processes, open the UI, and click `Load guided demo`. The guided demo uses `data\simple-demo-iam-inventory.json`: one employee, one team, two roles, and one clear route to administrator access. Show the route, read the recommended break, and click `Preview safe fix`. The preview clones the synthetic snapshot, removes only the selected role-assumption action, and re-runs the same analyzer to verify the route is broken; it never changes AWS or the uploaded file. Use `Load full inventory` or upload `data\sample-iam-inventory.json` when you need the complete multi-identity evidence view. Live chat, PostgreSQL, and AWS SSO are optional extensions, not required for this demo path.
+
+### How to read the graphs
+
+The focused path card is the primary security result. Read it left to right: starting identity, membership or policy relationship, enabling action, assumed role, and administrator-level target. The `Full authorization coverage` graph below is secondary evidence for inspecting the rest of the IAM inventory; unrelated users, policies, and context are intentionally not part of the primary path story.
 
 The sample contains 8 users, 4 groups, 6 roles, and 8 policies. It intentionally mixes safe access with group inheritance, unrestricted access, user lifecycle permissions, and privileged role-assumption paths so the graph has meaningful relationships to inspect.
 

@@ -1,7 +1,7 @@
 import { PathViewer } from "@/components/PathViewer";
 import type { Finding } from "@/lib/types";
 
-export function FindingsList({ findings }: { findings: Finding[] }) {
+export function FindingsList({ findings, selectedIndex, onSelect }: { findings: Finding[]; selectedIndex: number; onSelect: (index: number) => void }) {
   if (!findings.length) {
     return (
       <div className="rounded-xl border border-[#b9d7c8] bg-[#f1faf3] p-6 text-[#2c7652]">
@@ -13,28 +13,29 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
   return (
     <div className="space-y-4">
       {findings.map((finding, index) => (
-        <article key={`${finding.rule_id}-${finding.principal}-${index}`} className="rounded-xl border border-[#d4dfdc] bg-white p-5">
+        <article key={`${finding.rule_id}-${finding.principal}-${index}`} className={`rounded-xl border bg-white p-5 ${selectedIndex === index ? "border-[#147d78] ring-2 ring-[#147d78]/10" : "border-[#d4dfdc]"}`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="font-mono text-xs tracking-[0.18em] text-[#147d78]">{finding.rule_id}</p>
+              <p className="font-mono text-xs tracking-[0.18em] text-[#147d78]">Access risk</p>
               <h3 className="mt-1 text-lg font-semibold text-[#17252f]">{finding.reason}</h3>
             </div>
-            <span className="rounded-full border border-[#e2b7b1] bg-[#fff3f1] px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#a33d34]">
-              {finding.severity}
-            </span>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => onSelect(index)} className="rounded-md border border-[#147d78] px-2.5 py-1.5 text-xs font-semibold text-[#147d78] hover:bg-[#eef7f4]">{selectedIndex === index ? "Selected for preview" : "Preview this fix"}</button>
+              <span className="rounded-full border border-[#e2b7b1] bg-[#fff3f1] px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#a33d34]">{finding.severity} risk</span>
+            </div>
           </div>
           <dl className="mt-4 grid gap-3 border-y border-[#e7eeeb] py-4 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-[#71817e]">Principal</dt>
+              <dt className="text-[#71817e]">Starting identity</dt>
               <dd className="mt-1 break-all font-mono text-[#314842]">{finding.principal}</dd>
             </div>
             <div>
-              <dt className="text-[#71817e]">Permission</dt>
+              <dt className="text-[#71817e]">Access capability</dt>
               <dd className="mt-1 font-mono text-[#8a611b]">{finding.permission}</dd>
             </div>
           </dl>
           <div className="mt-5">
-            <p className="mb-2 text-xs uppercase tracking-wider text-[#71817e]">Evidence path</p>
+            <p className="mb-2 text-xs uppercase tracking-wider text-[#71817e]">How access moves</p>
             <PathViewer path={finding.path} />
           </div>
           <p className="mt-5 text-sm text-[#536562]">

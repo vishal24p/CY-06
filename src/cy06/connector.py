@@ -39,6 +39,26 @@ class Connection:
         )
 
 
+def collect_inventory(connection: Connection) -> dict[str, list[dict[str, Any]]]:
+    """Read the complete account IAM authorization inventory."""
+    inventory: dict[str, list[dict[str, Any]]] = {
+        "UserDetailList": [],
+        "GroupDetailList": [],
+        "RoleDetailList": [],
+        "Policies": [],
+    }
+    try:
+        pages = connection.session.client("iam").get_paginator(
+            "get_account_authorization_details"
+        ).paginate()
+        for page in pages:
+            for key in inventory:
+                inventory[key].extend(page.get(key, []))
+    except ClientError as error:
+        raise ConnectionError("AWS IAM inventory read failed") from error
+    return inventory
+
+
 def connect(
     profile_name: str,
     role_arn: str,

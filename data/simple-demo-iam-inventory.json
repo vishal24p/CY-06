@@ -1,0 +1,96 @@
+{
+  "UserDetailList": [
+    {
+      "UserName": "alex",
+      "Arn": "arn:aws:iam::000000000000:user/alex",
+      "GroupList": ["Engineering"],
+      "AttachedManagedPolicies": [],
+      "UserPolicyList": []
+    }
+  ],
+  "GroupDetailList": [
+    {
+      "GroupName": "Engineering",
+      "Arn": "arn:aws:iam::000000000000:group/Engineering",
+      "Users": ["alex"],
+      "AttachedManagedPolicies": [],
+      "GroupPolicyList": [
+        {
+          "PolicyName": "CanEnterDeployment",
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": "sts:AssumeRole",
+                "Resource": "arn:aws:iam::000000000000:role/DeploymentRole"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "RoleDetailList": [
+    {
+      "RoleName": "DeploymentRole",
+      "Arn": "arn:aws:iam::000000000000:role/DeploymentRole",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {"AWS": "arn:aws:iam::000000000000:user/alex"},
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "AttachedManagedPolicies": [],
+      "RolePolicyList": [
+        {
+          "PolicyName": "CanEnterAdmin",
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": "sts:AssumeRole",
+                "Resource": "arn:aws:iam::000000000000:role/AdminRole"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "RoleName": "AdminRole",
+      "Arn": "arn:aws:iam::000000000000:role/AdminRole",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {"AWS": "arn:aws:iam::000000000000:role/DeploymentRole"},
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "AttachedManagedPolicies": [{"PolicyName": "AdministratorAccess"}],
+      "RolePolicyList": []
+    }
+  ],
+  "Policies": [],
+  "IdentityMetadata": [
+    {
+      "PrincipalArn": "arn:aws:iam::000000000000:user/alex",
+      "EmployeeId": "EMP-1001",
+      "DisplayName": "Alex Morgan",
+      "JobTitle": "Software Engineer",
+      "Department": "Engineering",
+      "Manager": "Jordan Lee",
+      "EmploymentType": "Full-time",
+      "Status": "Active",
+      "IdentityProvider": "simple-demo"
+    }
+  ]
+}

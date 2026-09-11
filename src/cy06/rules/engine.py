@@ -2,6 +2,7 @@
 
 import fnmatch
 import json
+from collections import deque
 from collections.abc import Iterable, Mapping
 from typing import Any
 from urllib.parse import unquote
@@ -37,7 +38,7 @@ def analyze_inventory(
     warnings.extend(coverage["warnings"])
     findings: list[dict[str, Any]] = []
 
-    group_by_user = _groups_by_user(groups)
+    group_by_user = _groups_by_user(users, groups)
     role_by_arn: dict[str, dict[str, Any]] = {}
     role_by_name: dict[str, dict[str, Any]] = {}
     for role in roles:
@@ -130,17 +131,229 @@ def analyze_inventory(
         if "SessionPolicy" not in session:
             warnings.append({"code": "review_required", "feature": "SessionPolicy", "reason": "session policy was not supplied"})
 
-    critical = sum(item["severity"] == "critical" for item in findings)
-    high = sum(item["severity"] == "high" for item in findings)
+    paths = _find_privilege_paths(
+        users,
+        group_by_user,
+        role_by_arn,
+        role_by_name,
+        policy_docs,
+        inventory,
+        warnings,
+    )
+    findings.sort(key=lambda item: (0 if item["severity"] == "critical" else 1, item["principal"], item["permission"], item["path"]))
+    critical = sum(item["severity"] == "critical" for item in findings) + sum(
+        item["risk"] == "critical" for item in paths
+    )
+    high = sum(item["severity"] == "high" for item in findings) + sum(
+        item["risk"] == "high" for item in paths
+    )
     return {
         "status": "ok",
-        "summary": {"findings": len(findings), "critical": critical, "high": high},
+        "summary": {
+            "findings": len(findings),
+            "paths": len(paths),
+            "critical": critical,
+            "high": high,
+        },
         "findings": findings,
         "warnings": _dedupe_warnings(warnings),
         "graph": {"nodes": coverage["nodes"], "edges": coverage["edges"]},
         "coverage": coverage["coverage"],
         "identity_metadata": coverage["metadata"],
+        "paths": paths,
     }
+
+
+def _find_privilege_paths(
+    users: list[dict[str, Any]],
+    group_by_user: dict[str, list[dict[str, Any]]],
+    role_by_arn: dict[str, dict[str, Any]],
+    role_by_name: dict[str, dict[str, Any]],
+    policy_docs: dict[str, dict[str, Any]],
+    inventory: Mapping[str, Any],
+    warnings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    paths: list[dict[str, Any]] = []
+    for user in users:
+        principal = _identity(user)
+        if not principal:
+            continue
+        starting_privilege = _starting_privilege(
+            user,
+            principal,
+            group_by_user,
+            policy_docs,
+            inventory,
+            warnings,
+        )
+        queue = deque([(principal, user, [principal], 0, set(), False)])
+        while queue:
+            current_principal, entity, current_path, hops, visited, path_requires_review = queue.popleft()
+            statements = _effective_path_statements(
+                entity,
+                current_principal,
+                group_by_user,
+                policy_docs,
+                warnings,
+            )
+            for statement in statements:
+                if statement["effect"] != "Allow" or not _matches_any("sts:AssumeRole", statement["actions"]):
+                    continue
+                for resource in statement["resources"]:
+                    if _is_denied(statements, "sts:AssumeRole", resource):
+                        continue
+                    if _is_supplementally_blocked(inventory, entity, current_principal, "sts:AssumeRole", resource, policy_docs):
+                        continue
+                    targets = _role_targets(resource, role_by_arn, role_by_name)
+                    for target in targets:
+                        target_arn = str(target.get("Arn") or "")
+                        trust_allows, conditional_trust = _trust_allows(target, current_principal)
+                        if not target_arn or target_arn in visited or not trust_allows:
+                            continue
+                        role_name = str(target.get("RoleName") or target_arn)
+                        if conditional_trust:
+                            _add_trust_condition_warning(warnings, role_name)
+                        next_path = current_path + _statement_tail(statement) + ["sts:AssumeRole", role_name]
+                        next_hops = hops + 1
+                        next_requires_review = path_requires_review or statement["conditions"] or conditional_trust
+                        if _is_privileged_role(target, warnings):
+                            paths.append(
+                                _privilege_path(
+                                    principal,
+                                    target_arn,
+                                    next_path,
+                                    next_hops,
+                                    resource,
+                                    statement,
+                                    starting_privilege,
+                                    next_requires_review,
+                                )
+                            )
+                        else:
+                            queue.append((target_arn, target, next_path, next_hops, visited | {target_arn}, next_requires_review))
+    unique = {tuple(item["path"]): item for item in paths}
+    return sorted(unique.values(), key=lambda item: (-item["risk_score"], item["path"]))
+
+
+def _effective_path_statements(
+    entity: dict[str, Any],
+    principal: str,
+    group_by_user: dict[str, list[dict[str, Any]]],
+    policy_docs: dict[str, dict[str, Any]],
+    warnings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if principal.startswith("arn:aws:iam::") and ":user/" in principal:
+        statements = _entity_statements(entity, "AttachedManagedPolicies", "UserPolicyList", policy_docs, [principal], warnings)
+        for group in group_by_user.get(str(entity.get("UserName") or ""), []):
+            statements.extend(
+                _entity_statements(
+                    group,
+                    "AttachedManagedPolicies",
+                    "GroupPolicyList",
+                    policy_docs,
+                    [principal, str(group.get("GroupName") or "unknown-group")],
+                    warnings,
+                    via_group=True,
+                )
+            )
+        return statements
+    return _entity_statements(entity, "AttachedManagedPolicies", "RolePolicyList", policy_docs, [str(entity.get("RoleName") or principal)], warnings)
+
+
+def _statement_tail(statement: dict[str, Any]) -> list[str]:
+    path = list(statement["path"])
+    if statement["via_group"] and len(path) > 1:
+        path[1] = f"group:{path[1]}"
+    return path[1:] if path else []
+
+
+def _role_targets(resource: str, role_by_arn: dict[str, dict[str, Any]], role_by_name: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    if resource == "*":
+        return list(role_by_arn.values())
+    if resource in role_by_arn:
+        return [role_by_arn[resource]]
+    role = role_by_name.get(resource.rsplit("/", 1)[-1])
+    return [role] if role else []
+
+
+def _privilege_path(
+    principal: str,
+    target: str,
+    path: list[str],
+    hops: int,
+    resource: str,
+    statement: dict[str, Any],
+    starting_privilege: str,
+    requires_review: bool,
+) -> dict[str, Any]:
+    confirmed = not requires_review
+    score_breakdown = {
+        "target_impact": 40,
+        "assumption_resource_breadth": 20 if resource == "*" else 10,
+        "hop_directness": max(5, 30 - (hops - 1) * 5),
+        "source_context": 5 if starting_privilege == "low" else 0,
+        "confidence": 5 if confirmed else 0,
+    }
+    risk_score = min(100, sum(score_breakdown.values()))
+    return {
+        "principal": principal,
+        "target": target,
+        "risk": "critical" if risk_score >= 80 else "high",
+        "risk_score": risk_score,
+        "score_breakdown": score_breakdown,
+        "starting_privilege": starting_privilege,
+        "hops": hops,
+        "path": path,
+        "permission": "sts:AssumeRole",
+        "reason": "The identity can reach administrator-level access through chained role assumptions.",
+        "remediation": {
+            "policy_name": statement["policy"],
+            "statement_index": statement["statement_index"],
+            "action": "sts:AssumeRole",
+            "resource": resource,
+        },
+        "confidence": "confirmed" if confirmed else "review_required",
+    }
+
+
+def _starting_privilege(
+    user: dict[str, Any],
+    principal: str,
+    group_by_user: dict[str, list[dict[str, Any]]],
+    policy_docs: dict[str, dict[str, Any]],
+    inventory: Mapping[str, Any],
+    warnings: list[dict[str, Any]],
+) -> str:
+    groups = group_by_user.get(str(user.get("UserName") or ""), [])
+    if any(_has_administrator_policy(entity) for entity in [user, *groups]):
+        return "elevated"
+
+    statements = _effective_path_statements(
+        user, principal, group_by_user, policy_docs, warnings
+    )
+    for statement in statements:
+        if statement["effect"] != "Allow":
+            continue
+        for action in statement["actions"]:
+            for resource in statement["resources"]:
+                if _is_denied(statements, action, resource):
+                    continue
+                if _is_supplementally_blocked(
+                    inventory, user, principal, action, resource, policy_docs
+                ):
+                    continue
+                sensitive = any(_matches(action, value) for value in _SENSITIVE_ACTIONS)
+                if sensitive or (_is_unrestricted(action) and _is_unrestricted(resource)):
+                    return "elevated"
+    return "low"
+
+
+def _has_administrator_policy(entity: dict[str, Any]) -> bool:
+    return any(
+        isinstance(policy, dict)
+        and str(policy.get("PolicyName", "")).casefold() == "administratoraccess"
+        for policy in entity.get("AttachedManagedPolicies", [])
+    )
 
 
 def _sensitive_finding(
@@ -198,9 +411,12 @@ def _add_assume_role_findings(
     for role in targets:
         if not _is_privileged_role(role, warnings):
             continue
-        if not _trust_allows(role, principal):
+        trust_allows, conditional_trust = _trust_allows(role, principal)
+        if not trust_allows:
             continue
         role_name = role.get("RoleName") or role.get("Arn") or "unknown-role"
+        if conditional_trust:
+            _add_trust_condition_warning(warnings, str(role_name))
         _add_finding(
             findings,
             {
@@ -212,7 +428,7 @@ def _add_assume_role_findings(
                 "path": statement["path"] + ["sts:AssumeRole", str(role_name), "privileged-policy"],
                 "reason": "The identity can assume a role with administrator-level permissions.",
                 "remediation": "Remove the role-assumption permission or reduce the target role's privileges.",
-                "confidence": confidence,
+                "confidence": "review_required" if conditional_trust else confidence,
             },
         )
 
@@ -241,10 +457,11 @@ def _is_privileged_role(role: dict[str, Any], warnings: list[dict[str, Any]]) ->
     )
 
 
-def _trust_allows(role: dict[str, Any], principal: str) -> bool:
+def _trust_allows(role: dict[str, Any], principal: str) -> tuple[bool, bool]:
     document = _document(role.get("AssumeRolePolicyDocument"))
     if not document:
-        return False
+        return False, False
+    conditional_match = False
     for statement in _statements(document):
         if statement.get("Effect") != "Allow":
             continue
@@ -252,12 +469,29 @@ def _trust_allows(role: dict[str, Any], principal: str) -> bool:
             continue
         principal_value = statement.get("Principal", {})
         principals = principal_value.get("AWS", []) if isinstance(principal_value, dict) else principal_value
-        if "*" in _values(principals) or principal in _values(principals):
-            return True
         account = _account_id(principal)
-        if account and f"arn:aws:iam::{account}:root" in _values(principals):
-            return True
-    return False
+        matches = (
+            "*" in _values(principals)
+            or principal in _values(principals)
+            or bool(account and f"arn:aws:iam::{account}:root" in _values(principals))
+        )
+        if not matches:
+            continue
+        if statement.get("Condition"):
+            conditional_match = True
+            continue
+        return True, False
+    return conditional_match, conditional_match
+
+
+def _add_trust_condition_warning(warnings: list[dict[str, Any]], role: str) -> None:
+    warnings.append(
+        {
+            "code": "review_required",
+            "feature": "TrustPolicyCondition",
+            "role": role,
+        }
+    )
 
 
 def _entity_statements(
@@ -287,7 +521,11 @@ def _entity_statements(
         document = _document(raw_document)
         if not document:
             continue
-        for statement in _statements(document):
+        raw_statements = document.get("Statement", [])
+        raw_statements = raw_statements if isinstance(raw_statements, list) else [raw_statements]
+        for statement_index, statement in enumerate(raw_statements):
+            if not isinstance(statement, dict):
+                continue
             unsupported = []
             if "NotAction" in statement:
                 unsupported.append("NotAction")
@@ -303,6 +541,7 @@ def _entity_statements(
                     "policy": policy,
                     "path": path_prefix + [f"policy:{policy}"],
                     "conditions": bool(statement.get("Condition")),
+                    "statement_index": statement_index,
                     "unsupported": unsupported,
                     "via_group": via_group,
                 }
@@ -356,12 +595,22 @@ def _identity(entity: dict[str, Any]) -> str:
     return str(entity.get("Arn") or entity.get("UserName") or "")
 
 
-def _groups_by_user(groups: Iterable[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+def _groups_by_user(
+    users: Iterable[dict[str, Any]], groups: Iterable[dict[str, Any]]
+) -> dict[str, list[dict[str, Any]]]:
+    groups = list(groups)
+    by_name = {str(group.get("GroupName")): group for group in groups}
     result: dict[str, list[dict[str, Any]]] = {}
+    for user in users:
+        user_name = str(user.get("UserName") or "")
+        for group_name in user.get("GroupList", []):
+            group = by_name.get(str(group_name))
+            if user_name and group:
+                result.setdefault(user_name, []).append(group)
     for group in groups:
         for member in group.get("Users", []):
             user_name = member.get("UserName") if isinstance(member, dict) else member
-            if user_name:
+            if user_name and group not in result.get(str(user_name), []):
                 result.setdefault(str(user_name), []).append(group)
     return result
 

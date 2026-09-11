@@ -10,6 +10,26 @@ export type Finding = {
   confidence: "confirmed" | "review_required";
 };
 
+export type PrivilegePath = {
+  principal: string;
+  target: string;
+  risk: "critical" | "high";
+  risk_score: number;
+  score_breakdown: Record<string, number>;
+  starting_privilege: "low" | "elevated";
+  hops: number;
+  path: string[];
+  permission: string;
+  reason: string;
+  remediation: {
+    policy_name: string;
+    statement_index: number;
+    action: string;
+    resource: string;
+  };
+  confidence: "confirmed" | "review_required";
+};
+
 export type GraphNode = {
   id: string;
   type: string;
@@ -41,10 +61,12 @@ export type AnalysisReport = {
   status: "ok";
   summary: {
     findings: number;
+    paths: number;
     critical: number;
     high: number;
   };
   findings: Finding[];
+  paths: PrivilegePath[];
   warnings: Array<Record<string, string>>;
   graph: {
     nodes: GraphNode[];

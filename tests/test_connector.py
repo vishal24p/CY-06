@@ -8,7 +8,7 @@ from botocore.exceptions import (
     TokenRetrievalError,
 )
 
-from cy06.connector import EXPECTED_ROLE_ARN, connect
+from cy06.connector import EXPECTED_ROLE_ARN, Connection, collect_inventory, connect
 
 
 def test_connector_behavior_is_offline_and_boundary_safe():
@@ -63,3 +63,27 @@ def test_credential_boundary_errors_are_chained(exception):
     ):
         connect("profile", EXPECTED_ROLE_ARN)
     assert raised.value.__cause__ is exception
+
+
+def test_collect_inventory_merges_all_pages():
+    paginator = Mock()
+    paginator.paginate.return_value = [
+        {"UserDetailList": [{"UserName": "one"}], "Policies": [{"PolicyName": "p1"}]},
+        {"UserDetailList": [{"UserName": "two"}], "RoleDetailList": [{"RoleName": "r"}]},
+    ]
+    iam = Mock()
+    iam.get_paginator.return_value = paginator
+    connection = Connection(
+        session=Mock(client=Mock(return_value=iam)),
+        account_id="820919093456",
+        source_arn="source",
+        assumed_role_arn="role",
+        expiration=datetime.now(UTC),
+    )
+
+    inventory = collect_inventory(connection)
+
+    iam.get_paginator.assert_called_once_with("get_account_authorization_details")
+    assert [user["UserName"] for user in inventory["UserDetailList"]] == ["one", "two"]
+    assert len(inventory["RoleDetailList"]) == 1
+    assert len(inventory["Policies"]) == 1

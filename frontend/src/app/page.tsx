@@ -7,8 +7,10 @@ import { AnalysisSummary } from "@/components/AnalysisSummary";
 import { FindingsList } from "@/components/FindingsList";
 import { IamGraph } from "@/components/IamGraph";
 import { InventoryTables } from "@/components/InventoryTables";
+import { PrivilegePathList } from "@/components/PrivilegePathList";
 import { RemediationPreview } from "@/components/RemediationPreview";
-import { analyzeInventory, loadDemoInventory } from "@/lib/api";
+import { SimplePrivilegePathGraph } from "@/components/SimplePrivilegePathGraph";
+import { analyzeInventory, loadDemoInventory, loadFullDemoInventory, loadLiveInventory } from "@/lib/api";
 import type { AnalysisReport, Inventory } from "@/lib/types";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -17,7 +19,9 @@ export default function Home() {
   const [report, setReport] = useState<AnalysisReport | null>(null);
   const [inventory, setInventory] = useState<Inventory | null>(null);
   const [filename, setFilename] = useState("");
-  const [demoMode, setDemoMode] = useState(false);
+  const [selectedFindingIndex, setSelectedFindingIndex] = useState(0);
+  const [selectedPathIndex, setSelectedPathIndex] = useState(0);
+  const [previewReport, setPreviewReport] = useState<AnalysisReport | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -25,8 +29,10 @@ export default function Home() {
     const file = event.target.files?.[0];
     if (!file) return;
     setFilename(file.name);
-    setDemoMode(false);
     setReport(null);
+    setSelectedFindingIndex(0);
+    setSelectedPathIndex(0);
+    setPreviewReport(null);
     setInventory(null);
     setError("");
 
@@ -51,10 +57,17 @@ export default function Home() {
     setInventory(parsed);
   }
 
+  function selectPath(index: number) {
+    setSelectedPathIndex(index);
+    setPreviewReport(null);
+  }
+
   async function handleDemo() {
-    setFilename("sample-iam-inventory.json");
-    setDemoMode(true);
+    setFilename("simple-demo-iam-inventory.json");
     setReport(null);
+    setSelectedFindingIndex(0);
+    setSelectedPathIndex(0);
+    setPreviewReport(null);
     setInventory(null);
     setError("");
     setLoading(true);
@@ -62,6 +75,41 @@ export default function Home() {
       await showAnalysis(await loadDemoInventory());
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Demo data unavailable.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleFullDemo() {
+    setFilename("sample-iam-inventory.json");
+    setReport(null);
+    setSelectedFindingIndex(0);
+    setSelectedPathIndex(0);
+    setPreviewReport(null);
+    setInventory(null);
+    setError("");
+    setLoading(true);
+    try {
+      await showAnalysis(await loadFullDemoInventory());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Full inventory unavailable.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleLive() {
+    setFilename("AWS account 820919093456 · live read-only");
+    setReport(null);
+    setInventory(null);
+    setError("");
+    setLoading(true);
+    try {
+      const live = await loadLiveInventory();
+      setInventory(live.inventory);
+      setReport(live.report);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Live AWS inventory unavailable.");
     } finally {
       setLoading(false);
     }
@@ -101,6 +149,8 @@ export default function Home() {
               <input id="iam-file" className="sr-only" type="file" accept="application/json,.json" onChange={handleFile} />
             </label>
             <button type="button" onClick={handleDemo} disabled={loading} className="mt-3 w-full rounded-md border border-[#147d78] px-4 py-2 text-sm font-semibold text-[#147d78] hover:bg-[#eef7f4] disabled:cursor-not-allowed disabled:opacity-50">{loading ? "Loading demo…" : "Load guided demo"}</button>
+            <button type="button" onClick={handleLive} disabled={loading} className="mt-2 w-full rounded-md bg-[#147d78] px-4 py-2 text-sm font-semibold text-white hover:bg-[#106b67] disabled:cursor-not-allowed disabled:opacity-50">{loading ? "Loading AWS…" : "Load live AWS inventory"}</button>
+            <button type="button" onClick={handleFullDemo} disabled={loading} className="mt-2 w-full rounded-md border border-[#c7d3cf] px-4 py-2 text-sm font-semibold text-[#536562] hover:bg-[#f4f7f4] disabled:cursor-not-allowed disabled:opacity-50">{loading ? "Loading…" : "Load full inventory"}</button>
             {filename && <p className="mt-4 truncate rounded-md bg-[#eef2ef] px-3 py-2 font-mono text-xs text-[#536562]" title={filename}>{filename}</p>}
             <div className="mt-5 min-h-5" aria-live="polite">
               {loading && <p className="text-sm text-[#147d78]">Analyzing permission paths…</p>}
@@ -112,33 +162,35 @@ export default function Home() {
             <div className="overflow-hidden rounded-xl border border-[#d4dfdc] bg-white">
               <div className="grid grid-cols-3 divide-x divide-[#d4dfdc]">
                 <Metric label="Findings" value={report?.summary.findings ?? "—"} />
+                <Metric label="Attack paths" value={report?.summary.paths ?? report?.paths.length ?? "—"} />
                 <Metric label="Critical" value={report?.summary.critical ?? "—"} tone="critical" />
-                <Metric label="High" value={report?.summary.high ?? "—"} tone="high" />
               </div>
             </div>
           </div>
         </section>
         {inventory && <section className="mt-10" aria-labelledby="workspace-heading">
           <div className="mb-5 border-b border-[#cad6d2] pb-4">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Analysis workspace</p>
-            <h2 id="workspace-heading" className="mt-1 text-2xl font-semibold tracking-tight text-[#17252f]">Privilege path review</h2>
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Security review</p>
+            <h2 id="workspace-heading" className="mt-1 text-2xl font-semibold tracking-tight text-[#17252f]">How access reaches administrator level</h2>
           </div>
+          {report?.paths[selectedPathIndex] && <SimplePrivilegePathGraph path={report.paths[selectedPathIndex]} identityMetadata={report.identity_metadata} afterPath={previewReport?.paths.find((path) => path.path.join("\u0000") === report.paths[selectedPathIndex].path.join("\u0000"))} previewed={Boolean(previewReport)} />}
+          {report && <PrivilegePathList paths={report.paths} selectedIndex={selectedPathIndex} onSelect={selectPath} />}
           <div className="grid min-h-0 gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-stretch">
-            <div className="h-[70vh] min-h-[520px] max-h-[800px] min-w-0 overflow-auto rounded-xl">
-              <IamGraph graph={report?.graph ?? { nodes: [], edges: [] }} findings={report?.findings ?? []} />
+            <div className="h-[70vh] min-h-[640px] max-h-[800px] min-w-0 overflow-auto rounded-xl">
+              <IamGraph graph={report?.graph ?? { nodes: [], edges: [] }} findings={report?.findings ?? []} identityMetadata={report?.identity_metadata ?? []} afterGraph={previewReport?.graph} afterFindings={previewReport?.findings} />
             </div>
-            <div className="h-[70vh] min-h-[520px] max-h-[800px] min-w-0">
-              <ChatPanel findings={report?.findings ?? []} demoMode={demoMode} />
+            <div className="h-[70vh] min-h-[640px] max-h-[800px] min-w-0">
+              <ChatPanel findings={report?.findings ?? []} paths={report?.paths ?? []} />
             </div>
           </div>
           {report && <AnalysisSummary report={report} />}
-          {report?.findings[0] && <RemediationPreview inventory={inventory} finding={report.findings[0]} />}
+          {report?.paths[selectedPathIndex] ? <RemediationPreview key={selectedPathIndex} inventory={inventory} target={report.paths[selectedPathIndex]} onPreview={setPreviewReport} /> : report?.findings[selectedFindingIndex] && <RemediationPreview inventory={inventory} target={report.findings[selectedFindingIndex]} onPreview={setPreviewReport} />}
           <section className="mt-10" aria-labelledby="findings-heading">
             <div className="mb-5 border-b border-[#cad6d2] pb-4">
               <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Evidence paths</p>
               <h2 id="findings-heading" className="mt-1 text-2xl font-semibold tracking-tight text-[#17252f]">Detected privilege paths</h2>
             </div>
-            <FindingsList findings={report?.findings ?? []} />
+            <FindingsList findings={report?.findings ?? []} selectedIndex={selectedFindingIndex} onSelect={setSelectedFindingIndex} />
           </section>
           <section className="mt-10" aria-labelledby="inventory-heading">
             <div className="mb-5 border-b border-[#cad6d2] pb-4">

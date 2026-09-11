@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 
 import { sendChat } from "@/lib/api";
-import type { ChatMessage, ChatToolCall, Finding } from "@/lib/types";
+import type { ChatMessage, ChatToolCall, Finding, PrivilegePath } from "@/lib/types";
 
 const greeting: ChatMessage = {
   role: "assistant",
@@ -12,7 +12,7 @@ const greeting: ChatMessage = {
 const MAX_CHAT_MESSAGES = 20;
 const MAX_CHAT_MESSAGE_CHARS = 4_000;
 
-export function ChatPanel({ findings, demoMode }: { findings: Finding[]; demoMode: boolean }) {
+export function ChatPanel({ findings, paths }: { findings: Finding[]; paths: PrivilegePath[] }) {
   const [messages, setMessages] = useState<ChatMessage[]>([greeting]);
   const [draft, setDraft] = useState("");
   const [toolCalls, setToolCalls] = useState<ChatToolCall[]>([]);
@@ -38,23 +38,15 @@ export function ChatPanel({ findings, demoMode }: { findings: Finding[]; demoMod
     setStatus("");
     setSending(true);
 
-    if (demoMode) {
-      setMessages([...conversation, { role: "assistant" as const, content: localDemoAnswer(content, findings) }].slice(-MAX_CHAT_MESSAGES));
-      setToolCalls([]);
-      setStatus("Local demo answer. Configure chat provider for live assistant responses.");
-      setSending(false);
-      return;
-    }
-
     try {
       const response = await sendChat(conversation);
       setMessages([...conversation, { role: "assistant" as const, content: response.message }].slice(-MAX_CHAT_MESSAGES));
       setToolCalls(response.tool_calls);
-      setStatus(response.message ? `Assistant reply: ${response.message}` : "Assistant reply received.");
+      setStatus("Live provider response.");
     } catch {
-      setMessages([...conversation, { role: "assistant" as const, content: localDemoAnswer(content, findings) }].slice(-MAX_CHAT_MESSAGES));
+      setMessages([...conversation, { role: "assistant" as const, content: localDemoAnswer(content, findings, paths) }].slice(-MAX_CHAT_MESSAGES));
       setToolCalls([]);
-      setStatus("Local demo answer. Configure chat provider for live assistant responses.");
+      setStatus("Local evidence answer. Live provider unavailable.");
     } finally {
       setSending(false);
     }
@@ -63,8 +55,8 @@ export function ChatPanel({ findings, demoMode }: { findings: Finding[]; demoMod
   return (
     <section className="flex h-full min-h-0 flex-col rounded-xl border border-[#d4dfdc] bg-white p-5" aria-labelledby="chat-heading">
       <div className="border-b border-[#e3ebe7] pb-4">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Read-only assistant</p>
-        <h2 id="chat-heading" className="mt-1 text-xl font-semibold text-[#17252f]">Ask about this analysis</h2>
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#147d78]">Analysis helper</p>
+        <h2 id="chat-heading" className="mt-1 text-xl font-semibold text-[#17252f]">Ask about this result</h2>
         <p className="mt-2 text-xs leading-5 text-[#71817e]">Live provider optional. Local evidence answers keep the demo moving.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {["Which path is most dangerous?", "How do I remediate it?"].map((question) => <button key={question} type="button" onClick={() => setDraft(question)} className="rounded-full border border-[#b9d7c8] px-3 py-1.5 text-xs text-[#147d78] hover:bg-[#eef7f4]">{question}</button>)}
@@ -103,9 +95,11 @@ export function ChatPanel({ findings, demoMode }: { findings: Finding[]; demoMod
   );
 }
 
-function localDemoAnswer(question: string, findings: Finding[]) {
+function localDemoAnswer(question: string, findings: Finding[], paths: PrivilegePath[]) {
   const finding = findings[0];
-  if (!finding) return "Local demo answer: no privilege findings in this snapshot.";
+  const path = paths[0];
+  if (!finding && !path) return "No privilege risks found in this snapshot.";
+  if (!finding && path) return `Highest-risk route: ${path.path.join(" → ")}. ${path.reason}`;
   if (/remediat|fix|remove/i.test(question)) return `Local demo answer: ${finding.remediation} The Preview the fix control will re-run the analyzer on a copied snapshot; nothing is applied.`;
   return `Local demo answer: ${finding.severity} risk for ${finding.principal}. Evidence path: ${finding.path.join(" → ")}. ${finding.reason}`;
 }
